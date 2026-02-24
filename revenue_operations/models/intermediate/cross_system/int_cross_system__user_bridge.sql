@@ -3,7 +3,7 @@
         materialized='table'
     )
 }}
-
+--test
 with sf_users as (
     select
         user_id         as sf_user_id,
