@@ -1,0 +1,231 @@
+name: deal_to_delivery_view
+description: >
+  Semantic view for Cross-System Deal-to-Delivery Analysis. Part of the Per-Fact
+  Agent approach. Use this view for questions about deal profitability,
+  sales-to-delivery alignment, and cross-system metrics.
+
+tables:
+  - name: customers
+    description: Customer dimension for profitability analysis.
+    synonyms:
+      - accounts
+      - clients
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_CUSTOMER
+    dimensions:
+      - name: account_id
+        description: Account ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: customer_name
+        description: Customer name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Industry
+        expr: INDUSTRY
+        data_type: VARCHAR
+    facts:
+      - name: total_won_revenue
+        description: Total won revenue
+        expr: TOTAL_WON_REVENUE
+        data_type: NUMBER
+
+  - name: deal_to_delivery
+    description: Cross-system fact table joining deals with projects.
+    synonyms:
+      - profitability
+      - deals_and_projects
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_DEAL_TO_DELIVERY
+    dimensions:
+      - name: opportunity_id
+        description: Deal ID
+        synonyms:
+          - deal_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: workspace_id
+        description: Project ID
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+      - name: account_id
+        description: Customer ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: account_name
+        description: Customer name
+        synonyms:
+          - customer_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Industry
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: deal_name
+        description: Deal name
+        expr: DEAL_NAME
+        data_type: VARCHAR
+      - name: deal_is_won
+        description: Is won
+        expr: DEAL_IS_WON
+        data_type: BOOLEAN
+      - name: sales_rep_name
+        description: Sales rep
+        synonyms:
+          - rep_name
+        expr: SALES_REP_NAME
+        data_type: VARCHAR
+      - name: project_name
+        description: Project name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Project status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+    time_dimensions:
+      - name: deal_close_date
+        description: Close date
+        expr: DEAL_CLOSE_DATE
+        data_type: DATE
+      - name: project_start_date
+        description: Project start
+        expr: PROJECT_START_DATE
+        data_type: DATE
+      - name: project_due_date
+        description: Project due date
+        expr: PROJECT_DUE_DATE
+        data_type: DATE
+    facts:
+      - name: deal_amount
+        description: Deal value
+        synonyms:
+          - revenue
+        expr: DEAL_AMOUNT
+        data_type: NUMBER
+      - name: project_budget
+        description: Project budget
+        expr: PROJECT_BUDGET
+        data_type: NUMBER
+      - name: project_revenue
+        description: Project revenue
+        expr: PROJECT_REVENUE
+        data_type: NUMBER
+      - name: project_cost
+        description: Project cost
+        expr: PROJECT_COST
+        data_type: NUMBER
+      - name: project_total_hours
+        description: Total hours
+        expr: PROJECT_TOTAL_HOURS
+        data_type: NUMBER
+      - name: margin_pct
+        description: Margin percentage
+        synonyms:
+          - profitability
+        expr: MARGIN_PCT
+        data_type: NUMBER
+      - name: days_deal_to_kickoff
+        description: Days to kickoff
+        expr: DAYS_DEAL_TO_KICKOFF
+        data_type: NUMBER
+    metrics:
+      - name: total_deal_value
+        description: Total deal value
+        expr: SUM(DEAL_AMOUNT)
+      - name: total_project_revenue
+        description: Total project revenue
+        expr: SUM(PROJECT_REVENUE)
+      - name: total_project_cost
+        description: Total project cost
+        expr: SUM(PROJECT_COST)
+      - name: total_margin
+        description: Total margin
+        expr: SUM(PROJECT_REVENUE) - SUM(PROJECT_COST)
+      - name: avg_margin_pct
+        description: Average margin %
+        expr: AVG(MARGIN_PCT)
+      - name: deal_count
+        description: Number of deals
+        expr: COUNT(*)
+      - name: revenue_per_hour
+        description: Revenue per hour
+        expr: SUM(PROJECT_REVENUE) / NULLIF(SUM(PROJECT_TOTAL_HOURS), 0)
+    filters:
+      - name: won_deals
+        description: Won deals only
+        expr: "DEAL_IS_WON = TRUE"
+      - name: profitable
+        description: Profitable projects
+        expr: "MARGIN_PCT > 0"
+      - name: low_margin
+        description: Low margin projects
+        expr: "MARGIN_PCT < 20"
+
+relationships:
+  - name: deal_to_delivery_to_customer
+    left_table: deal_to_delivery
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+verified_queries:
+  - name: profitability_by_customer
+    question: Which customers have the best project margins?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        ACCOUNT_NAME as customer,
+        COUNT(*) as projects,
+        SUM(DEAL_AMOUNT) as deal_value,
+        SUM(PROJECT_REVENUE) as project_revenue,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_margin_pct
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+      GROUP BY ACCOUNT_NAME
+      ORDER BY avg_margin_pct DESC
+
+  - name: rep_delivery_performance
+    question: Which sales reps sell deals with the best margins?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        SALES_REP_NAME as rep,
+        COUNT(*) as deals,
+        SUM(DEAL_AMOUNT) as revenue,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_margin
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+        AND SALES_REP_NAME IS NOT NULL
+      GROUP BY SALES_REP_NAME
+      ORDER BY avg_margin DESC
+
+  - name: margin_by_industry
+    question: What is the margin by customer industry?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        COALESCE(INDUSTRY, 'Unknown') as industry,
+        COUNT(*) as projects,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_margin
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+      GROUP BY INDUSTRY
+      ORDER BY avg_margin DESC

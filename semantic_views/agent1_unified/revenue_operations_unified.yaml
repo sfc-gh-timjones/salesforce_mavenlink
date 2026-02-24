@@ -1,0 +1,1997 @@
+name: revenue_operations_unified
+description: >
+  Unified semantic view for Revenue Operations analytics combining Salesforce CRM
+  and Mavenlink project management data. Enables cross-system analysis of sales
+  pipeline, deal profitability, project delivery metrics, and customer health.
+  This comprehensive view includes all 5 fact tables and 5 dimension tables.
+
+tables:
+  - name: customers
+    description: >
+      Customer/Account dimension from Salesforce. Contains company profile,
+      revenue metrics, and aggregated opportunity statistics.
+    synonyms:
+      - accounts
+      - clients
+      - companies
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_CUSTOMER
+    dimensions:
+      - name: customer_key
+        description: Surrogate key for the customer dimension
+        expr: CUSTOMER_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: account_id
+        description: Salesforce Account ID (primary key)
+        synonyms:
+          - salesforce_account_id
+          - sf_account_id
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: customer_name
+        description: Name of the customer/company
+        synonyms:
+          - account_name
+          - company_name
+          - client_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Industry classification of the customer
+        synonyms:
+          - vertical
+          - sector
+          - market_segment
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: billing_city
+        description: City where customer is billed
+        synonyms:
+          - city
+          - location
+        expr: BILLING_CITY
+        data_type: VARCHAR
+      - name: billing_state
+        description: State/Province where customer is billed
+        synonyms:
+          - state
+          - region
+        expr: BILLING_STATE
+        data_type: VARCHAR
+      - name: billing_country
+        description: Country where customer is billed
+        synonyms:
+          - country
+        expr: BILLING_COUNTRY
+        data_type: VARCHAR
+      - name: owner_id
+        description: ID of the account owner (sales rep)
+        expr: OWNER_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: customer_created_date
+        description: Date when the customer record was created in Salesforce
+        synonyms:
+          - account_created_date
+          - signup_date
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+      - name: last_activity_date
+        description: Date of most recent activity on the account
+        synonyms:
+          - last_touchpoint
+          - last_engagement
+        expr: LAST_ACTIVITY_DATE
+        data_type: DATE
+    facts:
+      - name: annual_revenue
+        description: Customer's reported annual revenue
+        synonyms:
+          - arr
+          - yearly_revenue
+        expr: ANNUAL_REVENUE
+        data_type: NUMBER
+      - name: employee_count
+        description: Number of employees at the customer
+        synonyms:
+          - headcount
+          - company_size
+        expr: NUMBER_OF_EMPLOYEES
+        data_type: NUMBER
+    metrics:
+      - name: total_opportunities
+        description: Total number of opportunities for this customer
+        synonyms:
+          - opportunity_count
+          - deal_count
+        expr: SUM(TOTAL_OPPORTUNITIES)
+      - name: won_opportunities
+        description: Number of closed-won opportunities
+        synonyms:
+          - closed_won_count
+          - won_deals
+        expr: SUM(WON_OPPORTUNITIES)
+      - name: open_opportunities
+        description: Number of currently open opportunities
+        synonyms:
+          - active_opportunities
+          - pipeline_count
+        expr: SUM(OPEN_OPPORTUNITIES)
+      - name: total_won_revenue
+        description: Total revenue from closed-won opportunities
+        synonyms:
+          - customer_revenue
+          - lifetime_value
+          - ltv
+        expr: SUM(TOTAL_WON_REVENUE)
+      - name: open_pipeline_value
+        description: Total value of open opportunities
+        synonyms:
+          - pipeline_value
+          - potential_revenue
+        expr: SUM(OPEN_PIPELINE_VALUE)
+      - name: avg_deal_size
+        description: Average deal size for this customer
+        synonyms:
+          - average_deal_value
+        expr: AVG(AVG_DEAL_SIZE)
+      - name: win_rate
+        description: Percentage of opportunities won
+        synonyms:
+          - close_rate
+          - conversion_rate
+        expr: AVG(WIN_RATE_PCT)
+    filters:
+      - name: enterprise_customers
+        description: Customers with annual revenue over $100M
+        expr: "ANNUAL_REVENUE >= 100000000"
+      - name: active_customers
+        description: Customers with recent activity in last 90 days
+        expr: "LAST_ACTIVITY_DATE >= DATEADD(day, -90, CURRENT_DATE())"
+
+  - name: users
+    description: >
+      Unified user dimension combining Salesforce users (sales reps) and
+      Mavenlink users (consultants/delivery team). Includes utilization metrics.
+    synonyms:
+      - employees
+      - team_members
+      - reps
+      - consultants
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_USER
+    dimensions:
+      - name: user_key
+        description: Surrogate key for the user dimension
+        expr: USER_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: sf_user_id
+        description: Salesforce User ID
+        synonyms:
+          - salesforce_user_id
+        expr: SF_USER_ID
+        data_type: VARCHAR
+      - name: ml_user_id
+        description: Mavenlink User ID
+        synonyms:
+          - mavenlink_user_id
+        expr: ML_USER_ID
+        data_type: VARCHAR
+      - name: user_name
+        description: Full name of the user
+        synonyms:
+          - name
+          - employee_name
+          - rep_name
+          - consultant_name
+        expr: FULL_NAME
+        data_type: VARCHAR
+      - name: email
+        description: Email address of the user
+        expr: EMAIL
+        data_type: VARCHAR
+      - name: title
+        description: Job title
+        synonyms:
+          - job_title
+          - role
+          - position
+        expr: TITLE
+        data_type: VARCHAR
+      - name: department
+        description: Department the user belongs to
+        synonyms:
+          - team
+          - division
+        expr: DEPARTMENT
+        data_type: VARCHAR
+      - name: match_status
+        description: Whether user exists in both systems (matched/sf_only/ml_only)
+        expr: MATCH_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_active_salesforce
+        description: Whether user is active in Salesforce
+        synonyms:
+          - sf_active
+        expr: IS_ACTIVE_SALESFORCE
+        data_type: BOOLEAN
+    facts:
+      - name: active_project_count
+        description: Number of active Mavenlink projects assigned
+        synonyms:
+          - project_count
+          - assignments
+        expr: ML_ACTIVE_PROJECTS
+        data_type: NUMBER
+      - name: total_hours_logged
+        description: Total hours logged in Mavenlink
+        synonyms:
+          - hours_worked
+        expr: ML_TOTAL_HOURS
+        data_type: NUMBER
+      - name: billable_hours
+        description: Billable hours logged in Mavenlink
+        expr: ML_BILLABLE_HOURS
+        data_type: NUMBER
+    metrics:
+      - name: utilization_rate
+        description: Billable utilization percentage
+        synonyms:
+          - utilization_pct
+          - billability
+        expr: AVG(ML_UTILIZATION_PCT)
+    filters:
+      - name: matched_users
+        description: Users present in both Salesforce and Mavenlink
+        expr: "MATCH_STATUS = 'matched'"
+      - name: delivery_team
+        description: Users with Mavenlink IDs (consultants)
+        expr: "ML_USER_ID IS NOT NULL"
+
+  - name: products
+    description: >
+      Product catalog dimension from Salesforce. Contains product details
+      and categorization.
+    synonyms:
+      - offerings
+      - services
+      - skus
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_PRODUCT
+    dimensions:
+      - name: product_key
+        description: Surrogate key for the product dimension
+        expr: PRODUCT_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: product_id
+        description: Salesforce Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: product_name
+        description: Name of the product or service
+        synonyms:
+          - offering_name
+          - sku_name
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_code
+        description: Product code/SKU identifier
+        synonyms:
+          - sku
+          - item_code
+        expr: PRODUCT_CODE
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family/category grouping
+        synonyms:
+          - category
+          - product_line
+          - family
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: is_active
+        description: Whether the product is currently active
+        expr: IS_ACTIVE
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: product_created_date
+        description: Date the product was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+
+  - name: projects
+    description: >
+      Project dimension from Mavenlink. Contains project details, status,
+      budget information, and links to Salesforce opportunities.
+    synonyms:
+      - workspaces
+      - engagements
+      - implementations
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_PROJECT
+    dimensions:
+      - name: project_key
+        description: Surrogate key for the project dimension
+        expr: PROJECT_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: workspace_id
+        description: Mavenlink Workspace ID
+        synonyms:
+          - project_id
+          - mavenlink_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: project_name
+        description: Name of the project
+        synonyms:
+          - workspace_name
+          - engagement_name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Current status of the project (active, completed, cancelled, archived)
+        synonyms:
+          - status
+          - state
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_budgeted
+        description: Whether the project has a defined budget
+        expr: IS_BUDGETED
+        data_type: BOOLEAN
+      - name: is_overdue
+        description: Whether the project is past its due date
+        synonyms:
+          - overdue
+          - past_due
+        expr: IS_OVERDUE
+        data_type: BOOLEAN
+      - name: linked_opportunity_id
+        description: ID of the linked Salesforce opportunity
+        synonyms:
+          - sf_opportunity_id
+        expr: LINKED_OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: linked_account_id
+        description: ID of the linked Salesforce account
+        synonyms:
+          - sf_account_id
+        expr: LINKED_ACCOUNT_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: project_start_date
+        description: Planned start date of the project
+        synonyms:
+          - start_date
+          - kickoff_date
+        expr: START_DATE
+        data_type: DATE
+      - name: project_due_date
+        description: Planned end/due date of the project
+        synonyms:
+          - end_date
+          - due_date
+          - target_date
+        expr: DUE_DATE
+        data_type: DATE
+    facts:
+      - name: percentage_complete
+        description: Project completion percentage (0-100)
+        synonyms:
+          - completion_pct
+          - progress
+        expr: PERCENTAGE_COMPLETE
+        data_type: NUMBER
+      - name: budget_dollars
+        description: Total project budget in dollars
+        synonyms:
+          - budget
+          - project_budget
+        expr: BUDGET_DOLLARS
+        data_type: NUMBER
+      - name: budget_used_dollars
+        description: Amount of budget consumed
+        synonyms:
+          - spend
+          - budget_consumed
+        expr: BUDGET_USED_DOLLARS
+        data_type: NUMBER
+      - name: budget_remaining_dollars
+        description: Remaining budget
+        synonyms:
+          - budget_remaining
+        expr: BUDGET_REMAINING_DOLLARS
+        data_type: NUMBER
+      - name: total_stories
+        description: Total number of tasks/stories in the project
+        synonyms:
+          - task_count
+        expr: TOTAL_STORIES
+        data_type: NUMBER
+      - name: completed_stories
+        description: Number of completed tasks/stories
+        synonyms:
+          - completed_tasks
+        expr: COMPLETED_STORIES
+        data_type: NUMBER
+    metrics:
+      - name: budget_consumed_pct
+        description: Percentage of budget consumed
+        synonyms:
+          - burn_rate
+        expr: AVG(BUDGET_CONSUMED_PCT)
+      - name: story_completion_rate
+        description: Percentage of stories completed
+        synonyms:
+          - task_completion_rate
+        expr: AVG(STORY_COMPLETION_RATE)
+      - name: total_project_hours
+        description: Total hours logged on the project
+        expr: SUM(TOTAL_HOURS)
+      - name: total_billable_hours
+        description: Total billable hours on the project
+        expr: SUM(BILLABLE_HOURS)
+      - name: total_project_revenue
+        description: Total billable revenue from the project
+        expr: SUM(TOTAL_BILLABLE_REVENUE)
+      - name: total_project_cost
+        description: Total cost incurred on the project
+        expr: SUM(TOTAL_COST)
+    filters:
+      - name: active_projects
+        description: Currently active projects
+        expr: "PROJECT_STATUS = 'active'"
+      - name: at_risk_projects
+        description: Projects that are overdue or over budget
+        expr: "IS_OVERDUE = TRUE OR BUDGET_CONSUMED_PCT > 90"
+      - name: linked_projects
+        description: Projects linked to Salesforce opportunities
+        expr: "LINKED_OPPORTUNITY_ID IS NOT NULL"
+
+  - name: dates
+    description: >
+      Standard date dimension for time-based analysis. Supports filtering
+      and grouping by various date attributes.
+    synonyms:
+      - calendar
+      - time
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_DATE
+    dimensions:
+      - name: date_key
+        description: Date key (YYYY-MM-DD format)
+        expr: DATE_KEY
+        data_type: DATE
+        unique: true
+      - name: full_date
+        description: Full date value
+        expr: FULL_DATE
+        data_type: DATE
+      - name: year
+        description: Calendar year
+        synonyms:
+          - calendar_year
+        expr: YEAR
+        data_type: NUMBER
+      - name: quarter
+        description: Calendar quarter (1-4)
+        synonyms:
+          - calendar_quarter
+        expr: QUARTER
+        data_type: NUMBER
+      - name: month
+        description: Calendar month (1-12)
+        synonyms:
+          - calendar_month
+        expr: MONTH
+        data_type: NUMBER
+      - name: week_of_year
+        description: Week number within the year
+        synonyms:
+          - week
+        expr: WEEK_OF_YEAR
+        data_type: NUMBER
+      - name: day_of_week
+        description: Day of week (0=Sunday, 6=Saturday)
+        expr: DAY_OF_WEEK
+        data_type: NUMBER
+      - name: year_month
+        description: Year and month (YYYY-MM format)
+        expr: YEAR_MONTH
+        data_type: VARCHAR
+      - name: year_quarter
+        description: Year and quarter (YYYY-Q# format)
+        expr: YEAR_QUARTER
+        data_type: VARCHAR
+      - name: month_name
+        description: Full month name
+        expr: MONTH_NAME
+        data_type: VARCHAR
+      - name: day_name
+        description: Full day name
+        expr: DAY_NAME
+        data_type: VARCHAR
+      - name: is_weekend
+        description: Whether the date falls on a weekend
+        expr: IS_WEEKEND
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: first_day_of_month
+        description: First day of the month
+        expr: FIRST_DAY_OF_MONTH
+        data_type: DATE
+      - name: last_day_of_month
+        description: Last day of the month
+        expr: LAST_DAY_OF_MONTH
+        data_type: DATE
+      - name: first_day_of_quarter
+        description: First day of the quarter
+        expr: FIRST_DAY_OF_QUARTER
+        data_type: DATE
+      - name: first_day_of_year
+        description: First day of the year
+        expr: FIRST_DAY_OF_YEAR
+        data_type: DATE
+
+  - name: opportunities
+    description: >
+      Sales opportunity fact table from Salesforce. Contains deal information,
+      pipeline metrics, and links to Mavenlink projects.
+    synonyms:
+      - deals
+      - sales
+      - pipeline
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY
+    dimensions:
+      - name: opportunity_id
+        description: Salesforce Opportunity ID (primary key)
+        synonyms:
+          - deal_id
+          - sf_opportunity_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: account_id
+        description: ID of the associated customer account
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: owner_id
+        description: ID of the opportunity owner (sales rep)
+        synonyms:
+          - rep_id
+          - sales_rep_id
+        expr: OWNER_ID
+        data_type: VARCHAR
+      - name: opportunity_name
+        description: Name of the opportunity/deal
+        synonyms:
+          - deal_name
+        expr: OPPORTUNITY_NAME
+        data_type: VARCHAR
+      - name: account_name
+        description: Name of the associated customer
+        synonyms:
+          - customer_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: account_industry
+        description: Industry of the associated customer
+        synonyms:
+          - industry
+        expr: ACCOUNT_INDUSTRY
+        data_type: VARCHAR
+      - name: owner_name
+        description: Name of the opportunity owner
+        synonyms:
+          - sales_rep_name
+          - rep_name
+        expr: OWNER_NAME
+        data_type: VARCHAR
+      - name: stage_name
+        description: Current stage in the sales process
+        synonyms:
+          - stage
+          - sales_stage
+          - pipeline_stage
+        expr: STAGE_NAME
+        data_type: VARCHAR
+      - name: deal_status
+        description: High-level deal status (Open, Won, Lost)
+        synonyms:
+          - status
+        expr: DEAL_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: opportunity_type
+        description: Type of opportunity (New Business, Renewal, etc.)
+        synonyms:
+          - deal_type
+          - type
+        expr: OPPORTUNITY_TYPE
+        data_type: VARCHAR
+      - name: lead_source
+        description: Source of the lead/opportunity
+        synonyms:
+          - source
+          - channel
+        expr: LEAD_SOURCE
+        data_type: VARCHAR
+      - name: forecast_category
+        description: Forecast category (Pipeline, Best Case, Commit, Closed)
+        synonyms:
+          - forecast
+        expr: FORECAST_CATEGORY
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_closed
+        description: Whether the opportunity is closed
+        expr: IS_CLOSED
+        data_type: BOOLEAN
+      - name: is_won
+        description: Whether the opportunity was won
+        expr: IS_WON
+        data_type: BOOLEAN
+      - name: currency_code
+        description: Currency of the opportunity
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: fiscal_quarter
+        description: Fiscal quarter of the close date
+        synonyms:
+          - quarter
+        expr: FISCAL_QUARTER
+        data_type: VARCHAR
+      - name: fiscal_year
+        description: Fiscal year of the close date
+        expr: FISCAL_YEAR
+        data_type: NUMBER
+      - name: linked_workspace_id
+        description: ID of the linked Mavenlink project
+        synonyms:
+          - project_id
+          - mavenlink_workspace_id
+        expr: LINKED_WORKSPACE_ID
+        data_type: VARCHAR
+      - name: linked_project_title
+        description: Name of the linked Mavenlink project
+        synonyms:
+          - project_name
+        expr: LINKED_PROJECT_TITLE
+        data_type: VARCHAR
+      - name: linked_project_status
+        description: Status of the linked Mavenlink project
+        expr: LINKED_PROJECT_STATUS
+        data_type: VARCHAR
+      - name: has_linked_project
+        description: Whether the opportunity has a linked Mavenlink project
+        synonyms:
+          - has_project
+        expr: HAS_LINKED_PROJECT
+        data_type: BOOLEAN
+      - name: link_category
+        description: Category of the cross-system link
+        expr: LINK_CATEGORY
+        data_type: VARCHAR
+    time_dimensions:
+      - name: close_date
+        description: Expected or actual close date
+        synonyms:
+          - expected_close_date
+          - closed_date
+        expr: CLOSE_DATE
+        data_type: DATE
+      - name: created_date
+        description: Date the opportunity was created
+        synonyms:
+          - opportunity_created_date
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+      - name: last_activity_date
+        description: Date of last activity on the opportunity
+        expr: LAST_ACTIVITY_DATE
+        data_type: DATE
+    facts:
+      - name: amount
+        description: Opportunity amount/deal value
+        synonyms:
+          - deal_value
+          - deal_amount
+          - revenue
+          - value
+        expr: AMOUNT
+        data_type: NUMBER
+      - name: probability
+        description: Probability of winning (0-100)
+        synonyms:
+          - win_probability
+          - likelihood
+        expr: PROBABILITY
+        data_type: NUMBER
+      - name: days_to_close
+        description: Number of days to close the opportunity
+        synonyms:
+          - sales_cycle_days
+          - cycle_time
+        expr: DAYS_TO_CLOSE
+        data_type: NUMBER
+      - name: push_count
+        description: Number of times close date was pushed
+        synonyms:
+          - close_date_pushes
+        expr: PUSH_COUNT
+        data_type: NUMBER
+      - name: line_item_count
+        description: Number of line items on the opportunity
+        synonyms:
+          - product_count
+        expr: LINE_ITEM_COUNT
+        data_type: NUMBER
+      - name: total_line_item_value
+        description: Sum of all line item values
+        expr: TOTAL_LINE_ITEM_VALUE
+        data_type: NUMBER
+      - name: distinct_product_count
+        description: Number of unique products on the opportunity
+        expr: DISTINCT_PRODUCT_COUNT
+        data_type: NUMBER
+      - name: linked_project_budget
+        description: Budget of the linked Mavenlink project
+        synonyms:
+          - project_budget
+        expr: LINKED_PROJECT_BUDGET
+        data_type: NUMBER
+      - name: linked_project_spend
+        description: Spend on the linked Mavenlink project
+        synonyms:
+          - project_spend
+        expr: LINKED_PROJECT_SPEND
+        data_type: NUMBER
+    metrics:
+      - name: total_pipeline_value
+        description: Total value of all opportunities
+        synonyms:
+          - total_amount
+          - total_revenue
+          - pipeline_value
+        expr: SUM(AMOUNT)
+      - name: total_won_amount
+        description: Total value of closed-won opportunities
+        synonyms:
+          - total_won_revenue
+          - bookings
+        expr: SUM(CASE WHEN IS_WON THEN AMOUNT ELSE 0 END)
+      - name: opportunity_count
+        description: Number of opportunities
+        synonyms:
+          - deal_count
+        expr: COUNT(*)
+      - name: closed_won_count
+        description: Number of closed-won opportunities
+        synonyms:
+          - won_count
+          - wins
+        expr: SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END)
+      - name: closed_lost_count
+        description: Number of closed-lost opportunities
+        synonyms:
+          - lost_count
+          - losses
+        expr: SUM(CASE WHEN IS_CLOSED AND NOT IS_WON THEN 1 ELSE 0 END)
+      - name: win_rate_pct
+        description: Win rate percentage
+        synonyms:
+          - close_rate
+        expr: AVG(CASE WHEN IS_CLOSED THEN CASE WHEN IS_WON THEN 100.0 ELSE 0.0 END END)
+      - name: avg_deal_size
+        description: Average opportunity amount
+        synonyms:
+          - average_deal_value
+        expr: AVG(AMOUNT)
+      - name: avg_days_to_close
+        description: Average days to close
+        synonyms:
+          - average_sales_cycle
+        expr: AVG(DAYS_TO_CLOSE)
+      - name: weighted_pipeline
+        description: Pipeline weighted by probability
+        synonyms:
+          - expected_revenue
+        expr: SUM(AMOUNT * PROBABILITY / 100)
+    filters:
+      - name: open_deals
+        description: Currently open opportunities
+        expr: "IS_CLOSED = FALSE"
+      - name: closed_won_deals
+        description: Closed-won opportunities
+        expr: "IS_WON = TRUE"
+      - name: closed_lost_deals
+        description: Closed-lost opportunities
+        expr: "IS_CLOSED = TRUE AND IS_WON = FALSE"
+      - name: has_mavenlink_project
+        description: Opportunities with linked Mavenlink projects
+        expr: "HAS_LINKED_PROJECT = TRUE"
+      - name: this_fiscal_year
+        description: Opportunities in the current fiscal year
+        expr: "FISCAL_YEAR = YEAR(CURRENT_DATE())"
+
+  - name: opportunity_line_items
+    description: >
+      Line item fact table showing products sold on each opportunity.
+      One row per product per opportunity.
+    synonyms:
+      - line_items
+      - order_items
+      - products_sold
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY_LINE_ITEM
+    dimensions:
+      - name: opportunity_line_item_id
+        description: Unique ID for the line item
+        expr: OPPORTUNITY_LINE_ITEM_ID
+        data_type: VARCHAR
+        unique: true
+      - name: opportunity_id
+        description: Parent opportunity ID
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: account_id
+        description: Associated account ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: product_id
+        description: Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+      - name: line_item_name
+        description: Name/description of the line item
+        synonyms:
+          - item_name
+        expr: LINE_ITEM_NAME
+        data_type: VARCHAR
+      - name: product_name
+        description: Name of the product
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family/category
+        synonyms:
+          - category
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: currency_code
+        description: Currency of the line item
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: opportunity_stage
+        description: Stage of the parent opportunity
+        expr: OPPORTUNITY_STAGE
+        data_type: VARCHAR
+      - name: opportunity_is_won
+        description: Whether the parent opportunity was won
+        expr: OPPORTUNITY_IS_WON
+        data_type: BOOLEAN
+      - name: opportunity_is_closed
+        description: Whether the parent opportunity is closed
+        expr: OPPORTUNITY_IS_CLOSED
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: service_date
+        description: Service date for the line item
+        expr: SERVICE_DATE
+        data_type: DATE
+      - name: opportunity_close_date
+        description: Close date of the parent opportunity
+        expr: OPPORTUNITY_CLOSE_DATE
+        data_type: DATE
+      - name: created_date
+        description: Date the line item was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: quantity
+        description: Quantity sold
+        synonyms:
+          - units
+        expr: QUANTITY
+        data_type: NUMBER
+      - name: unit_price
+        description: Price per unit
+        synonyms:
+          - price
+        expr: UNIT_PRICE
+        data_type: NUMBER
+      - name: list_price
+        description: List price before discount
+        expr: LIST_PRICE
+        data_type: NUMBER
+      - name: total_price
+        description: Total line item price (quantity * unit_price)
+        synonyms:
+          - line_total
+          - extended_price
+        expr: TOTAL_PRICE
+        data_type: NUMBER
+      - name: discount_percent
+        description: Discount percentage applied
+        synonyms:
+          - discount
+        expr: DISCOUNT_PERCENT
+        data_type: NUMBER
+    metrics:
+      - name: total_line_item_revenue
+        description: Sum of all line item totals
+        synonyms:
+          - total_revenue
+        expr: SUM(TOTAL_PRICE)
+      - name: total_quantity
+        description: Total quantity sold
+        expr: SUM(QUANTITY)
+      - name: line_item_count
+        description: Number of line items
+        expr: COUNT(*)
+      - name: avg_unit_price
+        description: Average unit price
+        expr: AVG(UNIT_PRICE)
+      - name: avg_discount
+        description: Average discount percentage
+        expr: AVG(DISCOUNT_PERCENT)
+    filters:
+      - name: won_line_items
+        description: Line items from won opportunities
+        expr: "OPPORTUNITY_IS_WON = TRUE"
+
+  - name: time_entries
+    description: >
+      Time entry fact table from Mavenlink. Contains hours logged by
+      consultants on projects, with billing and cost information.
+    synonyms:
+      - timesheets
+      - hours
+      - time_logs
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_TIME_ENTRY
+    dimensions:
+      - name: time_entry_id
+        description: Unique ID for the time entry
+        expr: TIME_ENTRY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: workspace_id
+        description: Mavenlink project/workspace ID
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+      - name: story_id
+        description: Task/story ID the time was logged against
+        synonyms:
+          - task_id
+        expr: STORY_ID
+        data_type: VARCHAR
+      - name: user_id
+        description: ID of the user who logged time
+        synonyms:
+          - consultant_id
+        expr: USER_ID
+        data_type: VARCHAR
+      - name: is_billable
+        description: Whether the time is billable
+        synonyms:
+          - billable
+        expr: IS_BILLABLE
+        data_type: BOOLEAN
+      - name: is_approved
+        description: Whether the time entry is approved
+        synonyms:
+          - approved
+        expr: IS_APPROVED
+        data_type: BOOLEAN
+      - name: is_invoiced
+        description: Whether the time has been invoiced
+        synonyms:
+          - invoiced
+        expr: IS_INVOICED
+        data_type: BOOLEAN
+      - name: currency_code
+        description: Currency for rates
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: notes
+        description: Notes/description for the time entry
+        synonyms:
+          - description
+          - work_description
+        expr: NOTES
+        data_type: VARCHAR
+      - name: project_title
+        description: Name of the project
+        synonyms:
+          - project_name
+        expr: PROJECT_TITLE
+        data_type: VARCHAR
+      - name: project_status
+        description: Status of the project
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+      - name: task_title
+        description: Name of the task
+        synonyms:
+          - task_name
+          - story_title
+        expr: TASK_TITLE
+        data_type: VARCHAR
+      - name: story_type
+        description: Type of story (task, milestone, etc.)
+        synonyms:
+          - task_type
+        expr: STORY_TYPE
+        data_type: VARCHAR
+      - name: task_state
+        description: State of the task
+        synonyms:
+          - task_status
+        expr: TASK_STATE
+        data_type: VARCHAR
+      - name: user_name
+        description: Name of the user who logged time
+        synonyms:
+          - consultant_name
+        expr: USER_NAME
+        data_type: VARCHAR
+      - name: linked_opportunity_id
+        description: ID of the linked Salesforce opportunity
+        expr: LINKED_OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: linked_account_id
+        description: ID of the linked Salesforce account
+        expr: LINKED_ACCOUNT_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: date_performed
+        description: Date the work was performed
+        synonyms:
+          - work_date
+          - time_entry_date
+        expr: DATE_PERFORMED
+        data_type: DATE
+      - name: created_date
+        description: Date the time entry was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: time_in_minutes
+        description: Time logged in minutes
+        synonyms:
+          - minutes
+        expr: TIME_IN_MINUTES
+        data_type: NUMBER
+      - name: time_in_hours
+        description: Time logged in hours
+        synonyms:
+          - hours
+        expr: TIME_IN_HOURS
+        data_type: NUMBER
+      - name: rate_dollars
+        description: Billing rate in dollars per hour
+        synonyms:
+          - bill_rate
+          - hourly_rate
+        expr: RATE_DOLLARS
+        data_type: NUMBER
+      - name: cost_rate_dollars
+        description: Cost rate in dollars per hour
+        synonyms:
+          - cost_rate
+        expr: COST_RATE_DOLLARS
+        data_type: NUMBER
+      - name: revenue_dollars
+        description: Revenue generated (billable hours * rate)
+        synonyms:
+          - billable_revenue
+        expr: REVENUE_DOLLARS
+        data_type: NUMBER
+      - name: cost_dollars
+        description: Cost incurred (hours * cost rate)
+        synonyms:
+          - labor_cost
+        expr: COST_DOLLARS
+        data_type: NUMBER
+    metrics:
+      - name: total_hours
+        description: Total hours logged
+        synonyms:
+          - total_time
+        expr: SUM(TIME_IN_HOURS)
+      - name: total_billable_hours
+        description: Total billable hours
+        expr: SUM(CASE WHEN IS_BILLABLE THEN TIME_IN_HOURS ELSE 0 END)
+      - name: total_non_billable_hours
+        description: Total non-billable hours
+        expr: SUM(CASE WHEN NOT IS_BILLABLE THEN TIME_IN_HOURS ELSE 0 END)
+      - name: total_revenue
+        description: Total revenue from billable time
+        expr: SUM(REVENUE_DOLLARS)
+      - name: total_cost
+        description: Total labor cost
+        expr: SUM(COST_DOLLARS)
+      - name: gross_margin
+        description: Revenue minus cost
+        expr: SUM(REVENUE_DOLLARS) - SUM(COST_DOLLARS)
+      - name: billability_rate
+        description: Percentage of hours that are billable
+        synonyms:
+          - billability_pct
+        expr: AVG(CASE WHEN IS_BILLABLE THEN 100.0 ELSE 0.0 END)
+      - name: time_entry_count
+        description: Number of time entries
+        expr: COUNT(*)
+      - name: avg_hours_per_entry
+        description: Average hours per time entry
+        expr: AVG(TIME_IN_HOURS)
+    filters:
+      - name: billable_time
+        description: Only billable time entries
+        expr: "IS_BILLABLE = TRUE"
+      - name: approved_time
+        description: Only approved time entries
+        expr: "IS_APPROVED = TRUE"
+      - name: linked_to_salesforce
+        description: Time entries on projects linked to Salesforce
+        expr: "LINKED_OPPORTUNITY_ID IS NOT NULL"
+
+  - name: project_status
+    description: >
+      Project status fact table showing project health, budget status,
+      and risk indicators. Provides current snapshot of project performance.
+    synonyms:
+      - project_health
+      - project_metrics
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_PROJECT_STATUS
+    dimensions:
+      - name: workspace_id
+        description: Mavenlink workspace/project ID
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: project_name
+        description: Name of the project
+        synonyms:
+          - workspace_name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Current project status
+        synonyms:
+          - status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_overdue
+        description: Whether the project is past due date
+        synonyms:
+          - overdue
+        expr: IS_OVERDUE
+        data_type: BOOLEAN
+      - name: health_status
+        description: Calculated health status (At Risk, On Track, Completed, etc.)
+        synonyms:
+          - risk_status
+          - project_health
+        expr: HEALTH_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: linked_opportunity_id
+        description: ID of linked Salesforce opportunity
+        expr: LINKED_OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: linked_account_id
+        description: ID of linked Salesforce account
+        expr: LINKED_ACCOUNT_ID
+        data_type: VARCHAR
+      - name: customer_name
+        description: Name of the associated customer
+        synonyms:
+          - account_name
+        expr: CUSTOMER_NAME
+        data_type: VARCHAR
+    time_dimensions:
+      - name: start_date
+        description: Project start date
+        expr: START_DATE
+        data_type: DATE
+      - name: due_date
+        description: Project due date
+        synonyms:
+          - end_date
+          - target_date
+        expr: DUE_DATE
+        data_type: DATE
+    facts:
+      - name: percentage_complete
+        description: Project completion percentage
+        synonyms:
+          - completion_pct
+          - progress
+        expr: PERCENTAGE_COMPLETE
+        data_type: NUMBER
+      - name: budget_dollars
+        description: Total project budget
+        synonyms:
+          - budget
+        expr: BUDGET_DOLLARS
+        data_type: NUMBER
+      - name: budget_used_dollars
+        description: Budget consumed
+        synonyms:
+          - spend
+        expr: BUDGET_USED_DOLLARS
+        data_type: NUMBER
+      - name: budget_remaining_dollars
+        description: Remaining budget
+        expr: BUDGET_REMAINING_DOLLARS
+        data_type: NUMBER
+      - name: budget_consumed_pct
+        description: Percentage of budget consumed
+        synonyms:
+          - burn_rate_pct
+        expr: BUDGET_CONSUMED_PCT
+        data_type: NUMBER
+      - name: burn_rate_index
+        description: Burn rate index (>1 means burning faster than progress)
+        synonyms:
+          - burn_index
+        expr: BURN_RATE_INDEX
+        data_type: NUMBER
+      - name: total_hours
+        description: Total hours logged
+        expr: TOTAL_HOURS
+        data_type: NUMBER
+      - name: billable_hours
+        description: Billable hours logged
+        expr: BILLABLE_HOURS
+        data_type: NUMBER
+      - name: total_billable_revenue
+        description: Total billable revenue
+        synonyms:
+          - project_revenue
+        expr: TOTAL_BILLABLE_REVENUE
+        data_type: NUMBER
+      - name: total_cost
+        description: Total project cost
+        synonyms:
+          - project_cost
+        expr: TOTAL_COST
+        data_type: NUMBER
+      - name: total_stories
+        description: Total number of tasks/stories
+        synonyms:
+          - task_count
+        expr: TOTAL_STORIES
+        data_type: NUMBER
+      - name: completed_stories
+        description: Number of completed tasks
+        synonyms:
+          - completed_tasks
+        expr: COMPLETED_STORIES
+        data_type: NUMBER
+      - name: in_progress_stories
+        description: Number of in-progress tasks
+        synonyms:
+          - active_tasks
+        expr: IN_PROGRESS_STORIES
+        data_type: NUMBER
+      - name: deal_amount
+        description: Value of the linked Salesforce deal
+        synonyms:
+          - opportunity_amount
+        expr: DEAL_AMOUNT
+        data_type: NUMBER
+    metrics:
+      - name: project_count
+        description: Number of projects
+        expr: COUNT(*)
+      - name: at_risk_project_count
+        description: Number of at-risk projects
+        expr: SUM(CASE WHEN HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END)
+      - name: avg_completion_pct
+        description: Average project completion
+        expr: AVG(PERCENTAGE_COMPLETE)
+      - name: total_budget
+        description: Sum of all project budgets
+        expr: SUM(BUDGET_DOLLARS)
+      - name: total_budget_used
+        description: Sum of all budget consumed
+        expr: SUM(BUDGET_USED_DOLLARS)
+      - name: story_completion_rate
+        description: Overall task completion rate
+        expr: SUM(COMPLETED_STORIES) / NULLIF(SUM(TOTAL_STORIES), 0) * 100
+      - name: total_deal_value
+        description: Total value of linked deals
+        expr: SUM(DEAL_AMOUNT)
+      - name: project_margin
+        description: Revenue minus cost
+        expr: SUM(TOTAL_BILLABLE_REVENUE) - SUM(TOTAL_COST)
+    filters:
+      - name: at_risk_projects
+        description: Projects with at-risk health status
+        expr: "HEALTH_STATUS LIKE 'At Risk%'"
+      - name: active_projects
+        description: Currently active projects
+        expr: "PROJECT_STATUS = 'active'"
+      - name: completed_projects
+        description: Completed projects
+        expr: "PROJECT_STATUS = 'completed'"
+      - name: linked_to_salesforce
+        description: Projects linked to Salesforce deals
+        expr: "LINKED_OPPORTUNITY_ID IS NOT NULL"
+
+  - name: deal_to_delivery
+    description: >
+      Cross-system fact table joining Salesforce opportunities with Mavenlink
+      projects. This is the flagship table for 1+1=3 analytics, showing deal
+      profitability, delivery performance, and sales-to-delivery alignment.
+    synonyms:
+      - deals_and_projects
+      - opportunity_projects
+      - cross_system
+      - profitability
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_DEAL_TO_DELIVERY
+    dimensions:
+      - name: opportunity_id
+        description: Salesforce Opportunity ID
+        synonyms:
+          - deal_id
+          - sf_opportunity_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: workspace_id
+        description: Mavenlink Workspace ID
+        synonyms:
+          - project_id
+          - ml_workspace_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+      - name: account_id
+        description: Salesforce Account ID
+        synonyms:
+          - customer_id
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: account_name
+        description: Customer/Account name
+        synonyms:
+          - customer_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Customer industry
+        synonyms:
+          - vertical
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: deal_name
+        description: Name of the Salesforce opportunity
+        synonyms:
+          - opportunity_name
+        expr: DEAL_NAME
+        data_type: VARCHAR
+      - name: deal_stage
+        description: Current stage of the opportunity
+        synonyms:
+          - stage
+          - opportunity_stage
+        expr: DEAL_STAGE
+        data_type: VARCHAR
+      - name: deal_is_won
+        description: Whether the deal was won
+        synonyms:
+          - is_won
+        expr: DEAL_IS_WON
+        data_type: BOOLEAN
+      - name: forecast_category
+        description: Forecast category
+        expr: FORECAST_CATEGORY
+        data_type: VARCHAR
+      - name: currency_code
+        description: Currency of the deal
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: sales_rep_name
+        description: Name of the sales rep who sold the deal
+        synonyms:
+          - rep_name
+          - owner_name
+        expr: SALES_REP_NAME
+        data_type: VARCHAR
+      - name: project_name
+        description: Name of the Mavenlink project
+        synonyms:
+          - workspace_name
+          - engagement_name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Current status of the Mavenlink project
+        synonyms:
+          - status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+    time_dimensions:
+      - name: deal_close_date
+        description: Date the deal closed
+        synonyms:
+          - close_date
+          - closed_date
+        expr: DEAL_CLOSE_DATE
+        data_type: DATE
+      - name: project_start_date
+        description: Start date of the project
+        synonyms:
+          - kickoff_date
+        expr: PROJECT_START_DATE
+        data_type: DATE
+      - name: project_due_date
+        description: Due date of the project
+        synonyms:
+          - end_date
+          - target_date
+        expr: PROJECT_DUE_DATE
+        data_type: DATE
+    facts:
+      - name: deal_amount
+        description: Salesforce opportunity amount
+        synonyms:
+          - opportunity_amount
+          - deal_value
+          - revenue
+        expr: DEAL_AMOUNT
+        data_type: NUMBER
+      - name: project_budget
+        description: Mavenlink project budget
+        synonyms:
+          - budget
+        expr: PROJECT_BUDGET
+        data_type: NUMBER
+      - name: project_spend
+        description: Amount spent on the project
+        synonyms:
+          - spend
+          - budget_used
+        expr: PROJECT_SPEND
+        data_type: NUMBER
+      - name: project_pct_complete
+        description: Project completion percentage
+        synonyms:
+          - completion_pct
+          - progress
+        expr: PROJECT_PCT_COMPLETE
+        data_type: NUMBER
+      - name: project_total_hours
+        description: Total hours logged on the project
+        synonyms:
+          - total_hours
+        expr: PROJECT_TOTAL_HOURS
+        data_type: NUMBER
+      - name: project_billable_hours
+        description: Billable hours on the project
+        synonyms:
+          - billable_hours
+        expr: PROJECT_BILLABLE_HOURS
+        data_type: NUMBER
+      - name: project_revenue
+        description: Revenue from the project delivery
+        synonyms:
+          - delivery_revenue
+        expr: PROJECT_REVENUE
+        data_type: NUMBER
+      - name: project_cost
+        description: Cost of project delivery
+        synonyms:
+          - delivery_cost
+          - labor_cost
+        expr: PROJECT_COST
+        data_type: NUMBER
+      - name: project_team_size
+        description: Number of people who worked on the project
+        synonyms:
+          - team_size
+          - contributors
+        expr: PROJECT_TEAM_SIZE
+        data_type: NUMBER
+      - name: project_billability_pct
+        description: Percentage of hours that were billable
+        synonyms:
+          - billability
+        expr: PROJECT_BILLABILITY_PCT
+        data_type: NUMBER
+      - name: total_stories
+        description: Total tasks/stories in the project
+        synonyms:
+          - task_count
+        expr: TOTAL_STORIES
+        data_type: NUMBER
+      - name: completed_stories
+        description: Completed tasks/stories
+        synonyms:
+          - completed_tasks
+        expr: COMPLETED_STORIES
+        data_type: NUMBER
+      - name: task_completion_rate
+        description: Task completion rate percentage
+        synonyms:
+          - story_completion_rate
+        expr: TASK_COMPLETION_RATE
+        data_type: NUMBER
+      - name: revenue_realization_pct
+        description: Project revenue as percentage of deal amount
+        synonyms:
+          - realization_rate
+        expr: REVENUE_REALIZATION_PCT
+        data_type: NUMBER
+      - name: margin_pct
+        description: Project margin percentage
+        synonyms:
+          - profitability
+          - project_margin
+        expr: MARGIN_PCT
+        data_type: NUMBER
+      - name: days_deal_to_kickoff
+        description: Days from deal close to project start
+        synonyms:
+          - time_to_kickoff
+        expr: DAYS_DEAL_TO_KICKOFF
+        data_type: NUMBER
+      - name: planned_project_duration_days
+        description: Planned project duration in days
+        synonyms:
+          - project_duration
+        expr: PLANNED_PROJECT_DURATION_DAYS
+        data_type: NUMBER
+    metrics:
+      - name: total_deal_value
+        description: Sum of all deal amounts
+        synonyms:
+          - total_revenue
+          - bookings
+        expr: SUM(DEAL_AMOUNT)
+      - name: total_project_revenue
+        description: Sum of all project revenue
+        synonyms:
+          - total_delivery_revenue
+        expr: SUM(PROJECT_REVENUE)
+      - name: total_project_cost
+        description: Sum of all project costs
+        synonyms:
+          - total_delivery_cost
+        expr: SUM(PROJECT_COST)
+      - name: total_gross_margin
+        description: Total revenue minus total cost
+        synonyms:
+          - total_profit
+        expr: SUM(PROJECT_REVENUE) - SUM(PROJECT_COST)
+      - name: avg_margin_pct
+        description: Average project margin percentage
+        synonyms:
+          - avg_profitability
+        expr: AVG(MARGIN_PCT)
+      - name: deal_count
+        description: Number of deal-to-delivery records
+        synonyms:
+          - project_count
+        expr: COUNT(*)
+      - name: total_hours_delivered
+        description: Total hours logged across all projects
+        expr: SUM(PROJECT_TOTAL_HOURS)
+      - name: total_billable_hours_delivered
+        description: Total billable hours across all projects
+        expr: SUM(PROJECT_BILLABLE_HOURS)
+      - name: avg_team_size
+        description: Average project team size
+        expr: AVG(PROJECT_TEAM_SIZE)
+      - name: avg_days_to_kickoff
+        description: Average days from close to project start
+        expr: AVG(DAYS_DEAL_TO_KICKOFF)
+      - name: revenue_per_hour
+        description: Revenue generated per hour worked
+        synonyms:
+          - hourly_revenue
+        expr: SUM(PROJECT_REVENUE) / NULLIF(SUM(PROJECT_TOTAL_HOURS), 0)
+      - name: cost_per_hour
+        description: Cost per hour worked
+        synonyms:
+          - hourly_cost
+        expr: SUM(PROJECT_COST) / NULLIF(SUM(PROJECT_TOTAL_HOURS), 0)
+    filters:
+      - name: won_deals
+        description: Only closed-won deals
+        expr: "DEAL_IS_WON = TRUE"
+      - name: active_projects
+        description: Deals with active projects
+        expr: "PROJECT_STATUS = 'active'"
+      - name: profitable_projects
+        description: Projects with positive margin
+        expr: "MARGIN_PCT > 0"
+      - name: at_risk_profitability
+        description: Projects with margin below 20%
+        expr: "MARGIN_PCT < 20"
+
+relationships:
+  - name: opportunity_to_customer
+    left_table: opportunities
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: opportunity_to_owner
+    left_table: opportunities
+    right_table: users
+    relationship_columns:
+      - left_column: OWNER_ID
+        right_column: SF_USER_ID
+
+  - name: opportunity_line_item_to_opportunity
+    left_table: opportunity_line_items
+    right_table: opportunities
+    relationship_columns:
+      - left_column: OPPORTUNITY_ID
+        right_column: OPPORTUNITY_ID
+
+  - name: opportunity_line_item_to_product
+    left_table: opportunity_line_items
+    right_table: products
+    relationship_columns:
+      - left_column: PRODUCT_ID
+        right_column: PRODUCT_ID
+
+  - name: opportunity_line_item_to_customer
+    left_table: opportunity_line_items
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: project_to_customer
+    left_table: projects
+    right_table: customers
+    relationship_columns:
+      - left_column: LINKED_ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: project_to_opportunity
+    left_table: projects
+    right_table: opportunities
+    relationship_columns:
+      - left_column: LINKED_OPPORTUNITY_ID
+        right_column: OPPORTUNITY_ID
+
+  - name: time_entry_to_project
+    left_table: time_entries
+    right_table: projects
+    relationship_columns:
+      - left_column: WORKSPACE_ID
+        right_column: WORKSPACE_ID
+
+  - name: time_entry_to_user
+    left_table: time_entries
+    right_table: users
+    relationship_columns:
+      - left_column: USER_ID
+        right_column: ML_USER_ID
+
+  - name: time_entry_to_customer
+    left_table: time_entries
+    right_table: customers
+    relationship_columns:
+      - left_column: LINKED_ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: time_entry_to_date
+    left_table: time_entries
+    right_table: dates
+    relationship_columns:
+      - left_column: DATE_PERFORMED
+        right_column: DATE_KEY
+
+  - name: project_status_to_project
+    left_table: project_status
+    right_table: projects
+    relationship_columns:
+      - left_column: WORKSPACE_ID
+        right_column: WORKSPACE_ID
+
+  - name: project_status_to_customer
+    left_table: project_status
+    right_table: customers
+    relationship_columns:
+      - left_column: LINKED_ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: deal_to_delivery_to_customer
+    left_table: deal_to_delivery
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: deal_to_delivery_to_opportunity
+    left_table: deal_to_delivery
+    right_table: opportunities
+    relationship_columns:
+      - left_column: OPPORTUNITY_ID
+        right_column: OPPORTUNITY_ID
+
+  - name: deal_to_delivery_to_project
+    left_table: deal_to_delivery
+    right_table: projects
+    relationship_columns:
+      - left_column: WORKSPACE_ID
+        right_column: WORKSPACE_ID
+
+  - name: opportunity_to_close_date
+    left_table: opportunities
+    right_table: dates
+    relationship_columns:
+      - left_column: CLOSE_DATE
+        right_column: DATE_KEY
+
+  - name: deal_to_delivery_to_close_date
+    left_table: deal_to_delivery
+    right_table: dates
+    relationship_columns:
+      - left_column: DEAL_CLOSE_DATE
+        right_column: DATE_KEY
+
+verified_queries:
+  - name: top_customers_by_revenue
+    question: Who are our top 10 customers by total won revenue?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        ACCOUNT_NAME as customer_name,
+        TOTAL_WON_REVENUE as total_revenue,
+        WON_OPPORTUNITIES as deals_won,
+        AVG_DEAL_SIZE as average_deal_size
+      FROM ANALYTICS.MART.DIM_CUSTOMER
+      WHERE TOTAL_WON_REVENUE > 0
+      ORDER BY TOTAL_WON_REVENUE DESC
+      LIMIT 10
+
+  - name: pipeline_by_stage
+    question: What is our current pipeline value broken down by sales stage?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        STAGE_NAME as sales_stage,
+        COUNT(*) as opportunity_count,
+        SUM(AMOUNT) as total_value,
+        AVG(PROBABILITY) as avg_probability,
+        SUM(AMOUNT * PROBABILITY / 100) as weighted_value
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_CLOSED = FALSE
+      GROUP BY STAGE_NAME
+      ORDER BY SUM(AMOUNT) DESC
+
+  - name: deal_profitability_by_customer
+    question: Which customers have the highest project margins on closed deals?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        ACCOUNT_NAME as customer_name,
+        COUNT(*) as project_count,
+        SUM(DEAL_AMOUNT) as total_deal_value,
+        SUM(PROJECT_REVENUE) as total_project_revenue,
+        SUM(PROJECT_COST) as total_project_cost,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_margin_pct
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+      GROUP BY ACCOUNT_NAME
+      HAVING COUNT(*) >= 1
+      ORDER BY AVG(MARGIN_PCT) DESC
+
+  - name: sales_rep_performance
+    question: How are sales reps performing in terms of won deals and project delivery?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        SALES_REP_NAME as rep_name,
+        COUNT(*) as deals_closed,
+        SUM(DEAL_AMOUNT) as total_revenue,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_project_margin,
+        ROUND(AVG(DAYS_DEAL_TO_KICKOFF), 1) as avg_days_to_kickoff
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+        AND SALES_REP_NAME IS NOT NULL
+      GROUP BY SALES_REP_NAME
+      ORDER BY SUM(DEAL_AMOUNT) DESC
+
+  - name: consultant_utilization
+    question: What is the utilization rate of our consultants?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        FULL_NAME as consultant_name,
+        ML_ACTIVE_PROJECTS as active_projects,
+        ROUND(ML_TOTAL_HOURS, 1) as total_hours,
+        ROUND(ML_BILLABLE_HOURS, 1) as billable_hours,
+        ROUND(ML_UTILIZATION_PCT, 1) as utilization_pct
+      FROM ANALYTICS.MART.DIM_USER
+      WHERE ML_USER_ID IS NOT NULL
+        AND ML_TOTAL_HOURS > 0
+      ORDER BY ML_UTILIZATION_PCT DESC
+
+  - name: at_risk_projects
+    question: Which projects are at risk of going over budget or being late?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        PROJECT_NAME,
+        PROJECT_STATUS,
+        HEALTH_STATUS,
+        CUSTOMER_NAME,
+        ROUND(PERCENTAGE_COMPLETE, 1) as pct_complete,
+        ROUND(BUDGET_CONSUMED_PCT, 1) as budget_consumed_pct,
+        ROUND(BURN_RATE_INDEX, 2) as burn_rate_index,
+        IS_OVERDUE
+      FROM ANALYTICS.MART.FACT_PROJECT_STATUS
+      WHERE HEALTH_STATUS LIKE 'At Risk%'
+      ORDER BY BURN_RATE_INDEX DESC
+
+  - name: revenue_by_product_family
+    question: What is our revenue broken down by product family?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        COALESCE(PRODUCT_FAMILY, 'Unassigned') as product_family,
+        COUNT(DISTINCT OPPORTUNITY_ID) as opportunity_count,
+        SUM(TOTAL_PRICE) as total_revenue,
+        ROUND(AVG(UNIT_PRICE), 2) as avg_unit_price
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY_LINE_ITEM
+      WHERE OPPORTUNITY_IS_WON = TRUE
+      GROUP BY PRODUCT_FAMILY
+      ORDER BY SUM(TOTAL_PRICE) DESC
+
+  - name: monthly_time_entries
+    question: How many hours were logged each month this year?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        DATE_TRUNC('month', DATE_PERFORMED) as month,
+        ROUND(SUM(TIME_IN_HOURS), 1) as total_hours,
+        ROUND(SUM(CASE WHEN IS_BILLABLE THEN TIME_IN_HOURS ELSE 0 END), 1) as billable_hours,
+        ROUND(SUM(REVENUE_DOLLARS), 2) as revenue,
+        COUNT(DISTINCT USER_ID) as unique_consultants
+      FROM ANALYTICS.MART.FACT_TIME_ENTRY
+      WHERE YEAR(DATE_PERFORMED) = YEAR(CURRENT_DATE())
+      GROUP BY DATE_TRUNC('month', DATE_PERFORMED)
+      ORDER BY month
+
+  - name: whitespace_analysis
+    question: Which top customers by revenue have not had any project activity in the last 6 months?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      WITH customer_revenue AS (
+        SELECT
+          ACCOUNT_ID,
+          ACCOUNT_NAME,
+          TOTAL_WON_REVENUE
+        FROM ANALYTICS.MART.DIM_CUSTOMER
+        WHERE TOTAL_WON_REVENUE > 0
+        ORDER BY TOTAL_WON_REVENUE DESC
+        LIMIT 20
+      ),
+      recent_activity AS (
+        SELECT DISTINCT LINKED_ACCOUNT_ID
+        FROM ANALYTICS.MART.FACT_TIME_ENTRY
+        WHERE DATE_PERFORMED >= DATEADD(month, -6, CURRENT_DATE())
+          AND LINKED_ACCOUNT_ID IS NOT NULL
+      )
+      SELECT
+        cr.ACCOUNT_NAME as customer_name,
+        cr.TOTAL_WON_REVENUE as total_revenue,
+        CASE WHEN ra.LINKED_ACCOUNT_ID IS NULL THEN 'No Recent Activity' ELSE 'Active' END as status
+      FROM customer_revenue cr
+      LEFT JOIN recent_activity ra ON cr.ACCOUNT_ID = ra.LINKED_ACCOUNT_ID
+      WHERE ra.LINKED_ACCOUNT_ID IS NULL
+      ORDER BY cr.TOTAL_WON_REVENUE DESC
+
+  - name: stale_accounts_with_active_projects
+    question: Which customers have active Mavenlink projects but no sales touchpoints in over 45 days?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT DISTINCT
+        c.ACCOUNT_NAME as customer_name,
+        c.LAST_ACTIVITY_DATE as last_sales_touchpoint,
+        DATEDIFF(day, c.LAST_ACTIVITY_DATE, CURRENT_DATE()) as days_since_touchpoint,
+        p.PROJECT_NAME as active_project
+      FROM ANALYTICS.MART.DIM_CUSTOMER c
+      INNER JOIN ANALYTICS.MART.DIM_PROJECT p ON c.ACCOUNT_ID = p.LINKED_ACCOUNT_ID
+      WHERE p.PROJECT_STATUS = 'active'
+        AND c.LAST_ACTIVITY_DATE < DATEADD(day, -45, CURRENT_DATE())
+      ORDER BY days_since_touchpoint DESC
+
+  - name: avg_margin_by_industry
+    question: What is the average project margin by customer industry?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        COALESCE(INDUSTRY, 'Unknown') as industry,
+        COUNT(*) as project_count,
+        ROUND(SUM(DEAL_AMOUNT), 2) as total_deal_value,
+        ROUND(SUM(PROJECT_REVENUE), 2) as total_project_revenue,
+        ROUND(AVG(MARGIN_PCT), 2) as avg_margin_pct
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+        AND MARGIN_PCT IS NOT NULL
+      GROUP BY INDUSTRY
+      ORDER BY AVG(MARGIN_PCT) DESC
+
+  - name: deals_awaiting_implementation
+    question: What is the value of closed-won deals with projects not yet completed?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        DEAL_NAME,
+        ACCOUNT_NAME as customer,
+        DEAL_AMOUNT,
+        PROJECT_NAME,
+        PROJECT_STATUS,
+        ROUND(PROJECT_PCT_COMPLETE, 1) as pct_complete,
+        PROJECT_TOTAL_HOURS as hours_logged
+      FROM ANALYTICS.MART.FACT_DEAL_TO_DELIVERY
+      WHERE DEAL_IS_WON = TRUE
+        AND PROJECT_STATUS IN ('active', 'not started')
+      ORDER BY DEAL_AMOUNT DESC

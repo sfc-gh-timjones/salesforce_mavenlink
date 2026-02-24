@@ -1,0 +1,42 @@
+name: 'revenue_operations'
+version: '1.0.0'
+config-version: 2
+
+profile: 'revenue_operations'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  revenue_operations:
+    staging:
+      +materialized: table
+      +schema: STG
+      salesforce:
+        +tags: ['salesforce', 'staging']
+      mavenlink:
+        +tags: ['mavenlink', 'staging']
+    intermediate:
+      +materialized: table
+      +schema: INT
+      salesforce:
+        +tags: ['salesforce', 'intermediate']
+      mavenlink:
+        +tags: ['mavenlink', 'intermediate']
+      cross_system:
+        +tags: ['cross_system', 'intermediate']
+    marts:
+      +materialized: table
+      +schema: MART
+      +tags: ['marts']
+
+seeds:
+  revenue_operations:
+    +schema: MART

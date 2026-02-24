@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: stg_salesforce__account
+    description: Cleaned Salesforce accounts
+    columns:
+      - name: account_id
+        description: Primary key
+        tests: [unique, not_null]
+
+  - name: stg_salesforce__opportunity
+    description: Cleaned Salesforce opportunities
+    columns:
+      - name: opportunity_id
+        description: Primary key
+        tests: [unique, not_null]
+
+  - name: stg_salesforce__opportunity_line_item
+    description: Cleaned opportunity line items
+    columns:
+      - name: opportunity_line_item_id
+        description: Primary key
+        tests: [unique, not_null]
+
+  - name: stg_salesforce__product_2
+    description: Cleaned Salesforce products
+    columns:
+      - name: product_id
+        description: Primary key
+        tests: [unique, not_null]
+
+  - name: stg_salesforce__record_type
+    description: Cleaned record types
+    columns:
+      - name: record_type_id
+        description: Primary key
+        tests: [unique, not_null]
+
+  - name: stg_salesforce__user
+    description: Cleaned Salesforce users
+    columns:
+      - name: user_id
+        description: Primary key
+        tests: [unique, not_null]

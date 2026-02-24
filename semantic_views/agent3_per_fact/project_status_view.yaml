@@ -1,0 +1,197 @@
+name: project_status_view
+description: >
+  Semantic view for Project Status and Health. Part of the Per-Fact Agent approach.
+  Use this view for questions about project health, budget status,
+  risk indicators, and project performance.
+
+tables:
+  - name: projects
+    description: Project dimension.
+    synonyms:
+      - workspaces
+      - engagements
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_PROJECT
+    dimensions:
+      - name: workspace_id
+        description: Project ID
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: project_name
+        description: Project name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Project status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+    time_dimensions:
+      - name: start_date
+        description: Start date
+        expr: START_DATE
+        data_type: DATE
+      - name: due_date
+        description: Due date
+        expr: DUE_DATE
+        data_type: DATE
+    facts:
+      - name: budget_dollars
+        description: Project budget
+        expr: BUDGET_DOLLARS
+        data_type: NUMBER
+
+  - name: project_status
+    description: Project status and health fact table.
+    synonyms:
+      - project_health
+      - project_metrics
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_PROJECT_STATUS
+    dimensions:
+      - name: workspace_id
+        description: Project ID
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: project_name
+        description: Project name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: project_status
+        description: Project status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: health_status
+        description: Health status
+        synonyms:
+          - risk_status
+        expr: HEALTH_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_overdue
+        description: Is overdue
+        expr: IS_OVERDUE
+        data_type: BOOLEAN
+      - name: customer_name
+        description: Customer name
+        expr: CUSTOMER_NAME
+        data_type: VARCHAR
+    time_dimensions:
+      - name: start_date
+        description: Start date
+        expr: START_DATE
+        data_type: DATE
+      - name: due_date
+        description: Due date
+        expr: DUE_DATE
+        data_type: DATE
+    facts:
+      - name: percentage_complete
+        description: Completion percentage
+        expr: PERCENTAGE_COMPLETE
+        data_type: NUMBER
+      - name: budget_dollars
+        description: Project budget
+        expr: BUDGET_DOLLARS
+        data_type: NUMBER
+      - name: budget_used_dollars
+        description: Budget consumed
+        expr: BUDGET_USED_DOLLARS
+        data_type: NUMBER
+      - name: budget_consumed_pct
+        description: Budget consumption %
+        expr: BUDGET_CONSUMED_PCT
+        data_type: NUMBER
+      - name: burn_rate_index
+        description: Burn rate index
+        expr: BURN_RATE_INDEX
+        data_type: NUMBER
+      - name: total_hours
+        description: Total hours
+        expr: TOTAL_HOURS
+        data_type: NUMBER
+      - name: total_billable_revenue
+        description: Project revenue
+        expr: TOTAL_BILLABLE_REVENUE
+        data_type: NUMBER
+      - name: total_cost
+        description: Project cost
+        expr: TOTAL_COST
+        data_type: NUMBER
+    metrics:
+      - name: project_count
+        description: Number of projects
+        expr: COUNT(*)
+      - name: at_risk_count
+        description: At-risk project count
+        expr: SUM(CASE WHEN HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END)
+      - name: total_budget
+        description: Sum of budgets
+        expr: SUM(BUDGET_DOLLARS)
+      - name: avg_completion
+        description: Average completion
+        expr: AVG(PERCENTAGE_COMPLETE)
+      - name: project_margin
+        description: Project margin
+        expr: SUM(TOTAL_BILLABLE_REVENUE) - SUM(TOTAL_COST)
+    filters:
+      - name: at_risk
+        description: At-risk projects
+        expr: "HEALTH_STATUS LIKE 'At Risk%'"
+      - name: active
+        description: Active projects
+        expr: "PROJECT_STATUS = 'active'"
+      - name: overdue
+        description: Overdue projects
+        expr: "IS_OVERDUE = TRUE"
+
+relationships:
+  - name: status_to_project
+    left_table: project_status
+    right_table: projects
+    relationship_columns:
+      - left_column: WORKSPACE_ID
+        right_column: WORKSPACE_ID
+
+verified_queries:
+  - name: at_risk_projects
+    question: Which projects are at risk?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        PROJECT_NAME,
+        HEALTH_STATUS,
+        CUSTOMER_NAME,
+        ROUND(PERCENTAGE_COMPLETE, 1) as pct_complete,
+        ROUND(BUDGET_CONSUMED_PCT, 1) as budget_consumed_pct
+      FROM ANALYTICS.MART.FACT_PROJECT_STATUS
+      WHERE HEALTH_STATUS LIKE 'At Risk%'
+      ORDER BY BURN_RATE_INDEX DESC
+
+  - name: project_health_summary
+    question: What is the health status of our projects?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        HEALTH_STATUS,
+        COUNT(*) as project_count,
+        ROUND(AVG(PERCENTAGE_COMPLETE), 1) as avg_completion
+      FROM ANALYTICS.MART.FACT_PROJECT_STATUS
+      WHERE PROJECT_STATUS = 'active'
+      GROUP BY HEALTH_STATUS
+      ORDER BY project_count DESC

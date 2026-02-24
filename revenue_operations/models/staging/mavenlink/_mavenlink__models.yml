@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: stg_mavenlink__workspace
+    description: Cleaned Mavenlink workspaces (projects)
+    columns:
+      - name: workspace_id
+        tests: [unique, not_null]
+
+  - name: stg_mavenlink__story
+    description: Cleaned Mavenlink stories (tasks)
+    columns:
+      - name: story_id
+        tests: [unique, not_null]
+
+  - name: stg_mavenlink__time_entry
+    description: Cleaned time entries
+    columns:
+      - name: time_entry_id
+        tests: [unique, not_null]
+
+  - name: stg_mavenlink__user
+    description: Cleaned Mavenlink users
+    columns:
+      - name: user_id
+        tests: [unique, not_null]
+
+  - name: stg_mavenlink__account_membership
+    description: Account membership records with rates
+    columns:
+      - name: account_membership_id
+        tests: [unique, not_null]

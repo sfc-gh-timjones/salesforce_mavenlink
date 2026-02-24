@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: salesforce
+    database: BRONZE
+    schema: SALESFORCE
+    description: Raw Salesforce data synced via Fivetran
+    tables:
+      - name: ACCOUNT
+        description: Salesforce accounts (companies/organizations)
+      - name: OPPORTUNITY
+        description: Salesforce opportunities (deals)
+      - name: OPPORTUNITY_LINE_ITEM
+        description: Line items on opportunities
+      - name: PRODUCT_2
+        description: Salesforce products
+      - name: RECORD_TYPE
+        description: Salesforce record types
+      - name: USER
+        description: Salesforce users

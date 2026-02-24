@@ -1,0 +1,53 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: One row per customer account with sales summary
+    columns:
+      - name: customer_key
+        tests: [unique, not_null]
+  - name: dim_user
+    description: Unified user dimension across SF and ML
+    columns:
+      - name: user_key
+        tests: [unique, not_null]
+  - name: dim_product
+    description: One row per product
+    columns:
+      - name: product_key
+        tests: [unique, not_null]
+  - name: dim_project
+    description: One row per Mavenlink project (workspace)
+    columns:
+      - name: project_key
+        tests: [unique, not_null]
+  - name: dim_date
+    description: Calendar date dimension
+    columns:
+      - name: date_key
+        tests: [unique, not_null]
+  - name: fact_opportunity
+    description: One row per opportunity with enriched context
+    columns:
+      - name: opportunity_id
+        tests: [unique, not_null]
+  - name: fact_opportunity_line_item
+    description: One row per opportunity line item
+    columns:
+      - name: opportunity_line_item_id
+        tests: [unique, not_null]
+  - name: fact_time_entry
+    description: One row per time entry with project and user context
+    columns:
+      - name: time_entry_id
+        tests: [unique, not_null]
+  - name: fact_project_status
+    description: Project health scorecard per workspace
+    columns:
+      - name: workspace_id
+        tests: [unique, not_null]
+  - name: fact_deal_to_delivery
+    description: Combined deal and delivery metrics per opportunity-workspace pair
+    columns:
+      - name: opportunity_id
+        tests: [unique, not_null]

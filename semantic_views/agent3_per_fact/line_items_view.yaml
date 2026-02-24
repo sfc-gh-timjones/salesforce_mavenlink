@@ -1,0 +1,151 @@
+name: line_items_view
+description: >
+  Semantic view for Opportunity Line Items. Part of the Per-Fact Agent approach.
+  Use this view for questions about products sold, product revenue,
+  and product performance analysis.
+
+tables:
+  - name: products
+    description: Product catalog dimension.
+    synonyms:
+      - offerings
+      - skus
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_PRODUCT
+    dimensions:
+      - name: product_id
+        description: Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: product_name
+        description: Product name
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family
+        synonyms:
+          - category
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: product_code
+        description: Product code
+        expr: PRODUCT_CODE
+        data_type: VARCHAR
+
+  - name: line_items
+    description: Opportunity line items fact table.
+    synonyms:
+      - products_sold
+      - order_items
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY_LINE_ITEM
+    dimensions:
+      - name: opportunity_line_item_id
+        description: Line item ID
+        expr: OPPORTUNITY_LINE_ITEM_ID
+        data_type: VARCHAR
+        unique: true
+      - name: opportunity_id
+        description: Opportunity ID
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: product_id
+        description: Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+      - name: product_name
+        description: Product name
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: opportunity_is_won
+        description: Was opportunity won
+        expr: OPPORTUNITY_IS_WON
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: opportunity_close_date
+        description: Opportunity close date
+        expr: OPPORTUNITY_CLOSE_DATE
+        data_type: DATE
+    facts:
+      - name: quantity
+        description: Quantity sold
+        expr: QUANTITY
+        data_type: NUMBER
+      - name: unit_price
+        description: Unit price
+        expr: UNIT_PRICE
+        data_type: NUMBER
+      - name: total_price
+        description: Total price
+        expr: TOTAL_PRICE
+        data_type: NUMBER
+      - name: discount_percent
+        description: Discount percentage
+        expr: DISCOUNT_PERCENT
+        data_type: NUMBER
+    metrics:
+      - name: total_revenue
+        description: Total line item revenue
+        expr: SUM(TOTAL_PRICE)
+      - name: total_quantity
+        description: Total quantity sold
+        expr: SUM(QUANTITY)
+      - name: avg_unit_price
+        description: Average unit price
+        expr: AVG(UNIT_PRICE)
+      - name: line_item_count
+        description: Number of line items
+        expr: COUNT(*)
+    filters:
+      - name: won_items
+        description: Items from won opportunities
+        expr: "OPPORTUNITY_IS_WON = TRUE"
+
+relationships:
+  - name: line_item_to_product
+    left_table: line_items
+    right_table: products
+    relationship_columns:
+      - left_column: PRODUCT_ID
+        right_column: PRODUCT_ID
+
+verified_queries:
+  - name: revenue_by_product_family
+    question: What is revenue by product family?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        COALESCE(PRODUCT_FAMILY, 'Unassigned') as product_family,
+        SUM(TOTAL_PRICE) as total_revenue,
+        COUNT(*) as line_item_count
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY_LINE_ITEM
+      WHERE OPPORTUNITY_IS_WON = TRUE
+      GROUP BY PRODUCT_FAMILY
+      ORDER BY total_revenue DESC
+
+  - name: top_products
+    question: What are our top selling products?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        PRODUCT_NAME,
+        SUM(TOTAL_PRICE) as revenue,
+        SUM(QUANTITY) as units_sold
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY_LINE_ITEM
+      WHERE OPPORTUNITY_IS_WON = TRUE
+      GROUP BY PRODUCT_NAME
+      ORDER BY revenue DESC
+      LIMIT 10

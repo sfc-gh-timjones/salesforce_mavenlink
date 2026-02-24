@@ -1,0 +1,18 @@
+version: 2
+
+sources:
+  - name: mavenlink
+    database: BRONZE
+    schema: MAVENLINK
+    description: Raw Mavenlink data synced via Fivetran
+    tables:
+      - name: WORKSPACE
+        description: Projects linked to Salesforce opportunities
+      - name: STORY
+        description: Tasks and work items within projects
+      - name: TIME_ENTRY
+        description: Time tracking records
+      - name: USER
+        description: Consultants and project team members
+      - name: ACCOUNT_MEMBERSHIP
+        description: User account-level settings and rates

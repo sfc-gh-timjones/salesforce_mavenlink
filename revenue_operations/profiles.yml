@@ -1,0 +1,9 @@
+revenue_operations:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      database: ANALYTICS
+      role: KEY_PAIR_ROLE
+      schema: MART
+      warehouse: WH_XS

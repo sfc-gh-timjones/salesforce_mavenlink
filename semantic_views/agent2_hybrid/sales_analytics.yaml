@@ -1,0 +1,863 @@
+name: sales_analytics
+description: >
+  Sales Analytics semantic view focusing on Salesforce CRM data. Covers sales
+  pipeline, opportunities, customers, products, and line items. Part of the
+  Hybrid Agent approach for Revenue Operations. Use this view for questions
+  about sales performance, pipeline, forecasting, and customer revenue.
+
+tables:
+  - name: customers
+    description: >
+      Customer/Account dimension from Salesforce. Contains company profile,
+      revenue metrics, and aggregated opportunity statistics.
+    synonyms:
+      - accounts
+      - clients
+      - companies
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_CUSTOMER
+    dimensions:
+      - name: customer_key
+        description: Surrogate key for the customer dimension
+        expr: CUSTOMER_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: account_id
+        description: Salesforce Account ID (primary key)
+        synonyms:
+          - salesforce_account_id
+          - sf_account_id
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: customer_name
+        description: Name of the customer/company
+        synonyms:
+          - account_name
+          - company_name
+          - client_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Industry classification of the customer
+        synonyms:
+          - vertical
+          - sector
+          - market_segment
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: billing_city
+        description: City where customer is billed
+        synonyms:
+          - city
+          - location
+        expr: BILLING_CITY
+        data_type: VARCHAR
+      - name: billing_state
+        description: State/Province where customer is billed
+        synonyms:
+          - state
+          - region
+        expr: BILLING_STATE
+        data_type: VARCHAR
+      - name: billing_country
+        description: Country where customer is billed
+        synonyms:
+          - country
+        expr: BILLING_COUNTRY
+        data_type: VARCHAR
+      - name: owner_id
+        description: ID of the account owner (sales rep)
+        expr: OWNER_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: customer_created_date
+        description: Date when the customer record was created
+        synonyms:
+          - account_created_date
+          - signup_date
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+      - name: last_activity_date
+        description: Date of most recent activity on the account
+        synonyms:
+          - last_touchpoint
+          - last_engagement
+        expr: LAST_ACTIVITY_DATE
+        data_type: DATE
+    facts:
+      - name: annual_revenue
+        description: Customer's reported annual revenue
+        synonyms:
+          - arr
+          - yearly_revenue
+        expr: ANNUAL_REVENUE
+        data_type: NUMBER
+      - name: employee_count
+        description: Number of employees at the customer
+        synonyms:
+          - headcount
+          - company_size
+        expr: NUMBER_OF_EMPLOYEES
+        data_type: NUMBER
+    metrics:
+      - name: total_opportunities
+        description: Total number of opportunities for this customer
+        synonyms:
+          - opportunity_count
+          - deal_count
+        expr: SUM(TOTAL_OPPORTUNITIES)
+      - name: won_opportunities
+        description: Number of closed-won opportunities
+        synonyms:
+          - closed_won_count
+          - won_deals
+        expr: SUM(WON_OPPORTUNITIES)
+      - name: open_opportunities
+        description: Number of currently open opportunities
+        synonyms:
+          - active_opportunities
+          - pipeline_count
+        expr: SUM(OPEN_OPPORTUNITIES)
+      - name: total_won_revenue
+        description: Total revenue from closed-won opportunities
+        synonyms:
+          - customer_revenue
+          - lifetime_value
+          - ltv
+        expr: SUM(TOTAL_WON_REVENUE)
+      - name: open_pipeline_value
+        description: Total value of open opportunities
+        synonyms:
+          - pipeline_value
+          - potential_revenue
+        expr: SUM(OPEN_PIPELINE_VALUE)
+      - name: avg_deal_size
+        description: Average deal size for this customer
+        synonyms:
+          - average_deal_value
+        expr: AVG(AVG_DEAL_SIZE)
+      - name: win_rate
+        description: Percentage of opportunities won
+        synonyms:
+          - close_rate
+          - conversion_rate
+        expr: AVG(WIN_RATE_PCT)
+    filters:
+      - name: enterprise_customers
+        description: Customers with annual revenue over $100M
+        expr: "ANNUAL_REVENUE >= 100000000"
+      - name: active_customers
+        description: Customers with recent activity in last 90 days
+        expr: "LAST_ACTIVITY_DATE >= DATEADD(day, -90, CURRENT_DATE())"
+
+  - name: sales_reps
+    description: >
+      Salesforce users dimension representing sales representatives.
+      For consultant/delivery team data, use the Delivery Analytics view.
+    synonyms:
+      - reps
+      - salespeople
+      - owners
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_USER
+    dimensions:
+      - name: user_key
+        description: Surrogate key for the user dimension
+        expr: USER_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: user_id
+        description: Salesforce User ID
+        synonyms:
+          - salesforce_user_id
+          - sf_user_id
+        expr: SF_USER_ID
+        data_type: VARCHAR
+      - name: rep_name
+        description: Full name of the sales rep
+        synonyms:
+          - name
+          - sales_rep_name
+        expr: FULL_NAME
+        data_type: VARCHAR
+      - name: email
+        description: Email address
+        expr: EMAIL
+        data_type: VARCHAR
+      - name: title
+        description: Job title
+        synonyms:
+          - job_title
+          - role
+        expr: TITLE
+        data_type: VARCHAR
+      - name: department
+        description: Department
+        synonyms:
+          - team
+        expr: DEPARTMENT
+        data_type: VARCHAR
+      - name: is_active
+        description: Whether the rep is currently active
+        expr: IS_ACTIVE_SALESFORCE
+        data_type: BOOLEAN
+    filters:
+      - name: active_reps
+        description: Currently active sales reps
+        expr: "IS_ACTIVE_SALESFORCE = TRUE"
+      - name: salesforce_users
+        description: Users with Salesforce accounts
+        expr: "SF_USER_ID IS NOT NULL"
+
+  - name: products
+    description: >
+      Product catalog from Salesforce containing product details
+      and categorization.
+    synonyms:
+      - offerings
+      - services
+      - skus
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_PRODUCT
+    dimensions:
+      - name: product_key
+        description: Surrogate key for the product dimension
+        expr: PRODUCT_KEY
+        data_type: VARCHAR
+        unique: true
+      - name: product_id
+        description: Salesforce Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: product_name
+        description: Name of the product or service
+        synonyms:
+          - offering_name
+          - sku_name
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_code
+        description: Product code/SKU identifier
+        synonyms:
+          - sku
+          - item_code
+        expr: PRODUCT_CODE
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family/category grouping
+        synonyms:
+          - category
+          - product_line
+          - family
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: is_active
+        description: Whether the product is currently active
+        expr: IS_ACTIVE
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: product_created_date
+        description: Date the product was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+
+  - name: dates
+    description: Standard date dimension for time-based analysis.
+    synonyms:
+      - calendar
+      - time
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_DATE
+    dimensions:
+      - name: date_key
+        description: Date key (YYYY-MM-DD format)
+        expr: DATE_KEY
+        data_type: DATE
+        unique: true
+      - name: year
+        description: Calendar year
+        expr: YEAR
+        data_type: NUMBER
+      - name: quarter
+        description: Calendar quarter (1-4)
+        expr: QUARTER
+        data_type: NUMBER
+      - name: month
+        description: Calendar month (1-12)
+        expr: MONTH
+        data_type: NUMBER
+      - name: year_month
+        description: Year and month (YYYY-MM format)
+        expr: YEAR_MONTH
+        data_type: VARCHAR
+      - name: year_quarter
+        description: Year and quarter (YYYY-Q# format)
+        expr: YEAR_QUARTER
+        data_type: VARCHAR
+      - name: month_name
+        description: Full month name
+        expr: MONTH_NAME
+        data_type: VARCHAR
+      - name: is_weekend
+        description: Whether the date falls on a weekend
+        expr: IS_WEEKEND
+        data_type: BOOLEAN
+
+  - name: opportunities
+    description: >
+      Sales opportunity fact table from Salesforce. Contains deal information,
+      pipeline metrics, and includes indicators for linked Mavenlink projects.
+    synonyms:
+      - deals
+      - sales
+      - pipeline
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY
+    dimensions:
+      - name: opportunity_id
+        description: Salesforce Opportunity ID (primary key)
+        synonyms:
+          - deal_id
+          - sf_opportunity_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: account_id
+        description: ID of the associated customer account
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: owner_id
+        description: ID of the opportunity owner (sales rep)
+        synonyms:
+          - rep_id
+          - sales_rep_id
+        expr: OWNER_ID
+        data_type: VARCHAR
+      - name: opportunity_name
+        description: Name of the opportunity/deal
+        synonyms:
+          - deal_name
+        expr: OPPORTUNITY_NAME
+        data_type: VARCHAR
+      - name: account_name
+        description: Name of the associated customer
+        synonyms:
+          - customer_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: account_industry
+        description: Industry of the associated customer
+        synonyms:
+          - industry
+        expr: ACCOUNT_INDUSTRY
+        data_type: VARCHAR
+      - name: owner_name
+        description: Name of the opportunity owner
+        synonyms:
+          - sales_rep_name
+          - rep_name
+        expr: OWNER_NAME
+        data_type: VARCHAR
+      - name: stage_name
+        description: Current stage in the sales process
+        synonyms:
+          - stage
+          - sales_stage
+          - pipeline_stage
+        expr: STAGE_NAME
+        data_type: VARCHAR
+      - name: deal_status
+        description: High-level deal status (Open, Won, Lost)
+        synonyms:
+          - status
+        expr: DEAL_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: opportunity_type
+        description: Type of opportunity (New Business, Renewal, etc.)
+        synonyms:
+          - deal_type
+          - type
+        expr: OPPORTUNITY_TYPE
+        data_type: VARCHAR
+      - name: lead_source
+        description: Source of the lead/opportunity
+        synonyms:
+          - source
+          - channel
+        expr: LEAD_SOURCE
+        data_type: VARCHAR
+      - name: forecast_category
+        description: Forecast category (Pipeline, Best Case, Commit, Closed)
+        synonyms:
+          - forecast
+        expr: FORECAST_CATEGORY
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_closed
+        description: Whether the opportunity is closed
+        expr: IS_CLOSED
+        data_type: BOOLEAN
+      - name: is_won
+        description: Whether the opportunity was won
+        expr: IS_WON
+        data_type: BOOLEAN
+      - name: currency_code
+        description: Currency of the opportunity
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: fiscal_quarter
+        description: Fiscal quarter of the close date
+        synonyms:
+          - quarter
+        expr: FISCAL_QUARTER
+        data_type: VARCHAR
+      - name: fiscal_year
+        description: Fiscal year of the close date
+        expr: FISCAL_YEAR
+        data_type: NUMBER
+      - name: has_linked_project
+        description: Whether the opportunity has a linked Mavenlink project
+        synonyms:
+          - has_project
+          - has_delivery_project
+        expr: HAS_LINKED_PROJECT
+        data_type: BOOLEAN
+      - name: link_category
+        description: Category of the cross-system link
+        expr: LINK_CATEGORY
+        data_type: VARCHAR
+    time_dimensions:
+      - name: close_date
+        description: Expected or actual close date
+        synonyms:
+          - expected_close_date
+          - closed_date
+        expr: CLOSE_DATE
+        data_type: DATE
+      - name: created_date
+        description: Date the opportunity was created
+        synonyms:
+          - opportunity_created_date
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+      - name: last_activity_date
+        description: Date of last activity on the opportunity
+        expr: LAST_ACTIVITY_DATE
+        data_type: DATE
+    facts:
+      - name: amount
+        description: Opportunity amount/deal value
+        synonyms:
+          - deal_value
+          - deal_amount
+          - revenue
+          - value
+        expr: AMOUNT
+        data_type: NUMBER
+      - name: probability
+        description: Probability of winning (0-100)
+        synonyms:
+          - win_probability
+          - likelihood
+        expr: PROBABILITY
+        data_type: NUMBER
+      - name: days_to_close
+        description: Number of days to close the opportunity
+        synonyms:
+          - sales_cycle_days
+          - cycle_time
+        expr: DAYS_TO_CLOSE
+        data_type: NUMBER
+      - name: push_count
+        description: Number of times close date was pushed
+        synonyms:
+          - close_date_pushes
+        expr: PUSH_COUNT
+        data_type: NUMBER
+      - name: line_item_count
+        description: Number of line items on the opportunity
+        synonyms:
+          - product_count
+        expr: LINE_ITEM_COUNT
+        data_type: NUMBER
+      - name: distinct_product_count
+        description: Number of unique products on the opportunity
+        expr: DISTINCT_PRODUCT_COUNT
+        data_type: NUMBER
+    metrics:
+      - name: total_pipeline_value
+        description: Total value of all opportunities
+        synonyms:
+          - total_amount
+          - total_revenue
+          - pipeline_value
+        expr: SUM(AMOUNT)
+      - name: total_won_amount
+        description: Total value of closed-won opportunities
+        synonyms:
+          - total_won_revenue
+          - bookings
+        expr: SUM(CASE WHEN IS_WON THEN AMOUNT ELSE 0 END)
+      - name: opportunity_count
+        description: Number of opportunities
+        synonyms:
+          - deal_count
+        expr: COUNT(*)
+      - name: closed_won_count
+        description: Number of closed-won opportunities
+        synonyms:
+          - won_count
+          - wins
+        expr: SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END)
+      - name: closed_lost_count
+        description: Number of closed-lost opportunities
+        synonyms:
+          - lost_count
+          - losses
+        expr: SUM(CASE WHEN IS_CLOSED AND NOT IS_WON THEN 1 ELSE 0 END)
+      - name: win_rate_pct
+        description: Win rate percentage
+        synonyms:
+          - close_rate
+        expr: AVG(CASE WHEN IS_CLOSED THEN CASE WHEN IS_WON THEN 100.0 ELSE 0.0 END END)
+      - name: avg_deal_size
+        description: Average opportunity amount
+        synonyms:
+          - average_deal_value
+        expr: AVG(AMOUNT)
+      - name: avg_days_to_close
+        description: Average days to close
+        synonyms:
+          - average_sales_cycle
+        expr: AVG(DAYS_TO_CLOSE)
+      - name: weighted_pipeline
+        description: Pipeline weighted by probability
+        synonyms:
+          - expected_revenue
+        expr: SUM(AMOUNT * PROBABILITY / 100)
+    filters:
+      - name: open_deals
+        description: Currently open opportunities
+        expr: "IS_CLOSED = FALSE"
+      - name: closed_won_deals
+        description: Closed-won opportunities
+        expr: "IS_WON = TRUE"
+      - name: closed_lost_deals
+        description: Closed-lost opportunities
+        expr: "IS_CLOSED = TRUE AND IS_WON = FALSE"
+      - name: this_fiscal_year
+        description: Opportunities in the current fiscal year
+        expr: "FISCAL_YEAR = YEAR(CURRENT_DATE())"
+
+  - name: line_items
+    description: >
+      Line item fact table showing products sold on each opportunity.
+      One row per product per opportunity.
+    synonyms:
+      - opportunity_line_items
+      - order_items
+      - products_sold
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY_LINE_ITEM
+    dimensions:
+      - name: opportunity_line_item_id
+        description: Unique ID for the line item
+        expr: OPPORTUNITY_LINE_ITEM_ID
+        data_type: VARCHAR
+        unique: true
+      - name: opportunity_id
+        description: Parent opportunity ID
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: account_id
+        description: Associated account ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: product_id
+        description: Product ID
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+      - name: line_item_name
+        description: Name/description of the line item
+        synonyms:
+          - item_name
+        expr: LINE_ITEM_NAME
+        data_type: VARCHAR
+      - name: product_name
+        description: Name of the product
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: product_family
+        description: Product family/category
+        synonyms:
+          - category
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: currency_code
+        description: Currency of the line item
+        expr: CURRENCY_CODE
+        data_type: VARCHAR
+      - name: opportunity_stage
+        description: Stage of the parent opportunity
+        expr: OPPORTUNITY_STAGE
+        data_type: VARCHAR
+      - name: opportunity_is_won
+        description: Whether the parent opportunity was won
+        expr: OPPORTUNITY_IS_WON
+        data_type: BOOLEAN
+      - name: opportunity_is_closed
+        description: Whether the parent opportunity is closed
+        expr: OPPORTUNITY_IS_CLOSED
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: service_date
+        description: Service date for the line item
+        expr: SERVICE_DATE
+        data_type: DATE
+      - name: opportunity_close_date
+        description: Close date of the parent opportunity
+        expr: OPPORTUNITY_CLOSE_DATE
+        data_type: DATE
+      - name: created_date
+        description: Date the line item was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: quantity
+        description: Quantity sold
+        synonyms:
+          - units
+        expr: QUANTITY
+        data_type: NUMBER
+      - name: unit_price
+        description: Price per unit
+        synonyms:
+          - price
+        expr: UNIT_PRICE
+        data_type: NUMBER
+      - name: list_price
+        description: List price before discount
+        expr: LIST_PRICE
+        data_type: NUMBER
+      - name: total_price
+        description: Total line item price
+        synonyms:
+          - line_total
+          - extended_price
+        expr: TOTAL_PRICE
+        data_type: NUMBER
+      - name: discount_percent
+        description: Discount percentage applied
+        synonyms:
+          - discount
+        expr: DISCOUNT_PERCENT
+        data_type: NUMBER
+    metrics:
+      - name: total_line_item_revenue
+        description: Sum of all line item totals
+        synonyms:
+          - total_revenue
+        expr: SUM(TOTAL_PRICE)
+      - name: total_quantity
+        description: Total quantity sold
+        expr: SUM(QUANTITY)
+      - name: line_item_count
+        description: Number of line items
+        expr: COUNT(*)
+      - name: avg_unit_price
+        description: Average unit price
+        expr: AVG(UNIT_PRICE)
+      - name: avg_discount
+        description: Average discount percentage
+        expr: AVG(DISCOUNT_PERCENT)
+    filters:
+      - name: won_line_items
+        description: Line items from won opportunities
+        expr: "OPPORTUNITY_IS_WON = TRUE"
+
+relationships:
+  - name: opportunity_to_customer
+    left_table: opportunities
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: opportunity_to_rep
+    left_table: opportunities
+    right_table: sales_reps
+    relationship_columns:
+      - left_column: OWNER_ID
+        right_column: SF_USER_ID
+
+  - name: line_item_to_opportunity
+    left_table: line_items
+    right_table: opportunities
+    relationship_columns:
+      - left_column: OPPORTUNITY_ID
+        right_column: OPPORTUNITY_ID
+
+  - name: line_item_to_product
+    left_table: line_items
+    right_table: products
+    relationship_columns:
+      - left_column: PRODUCT_ID
+        right_column: PRODUCT_ID
+
+  - name: line_item_to_customer
+    left_table: line_items
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: opportunity_to_close_date
+    left_table: opportunities
+    right_table: dates
+    relationship_columns:
+      - left_column: CLOSE_DATE
+        right_column: DATE_KEY
+
+verified_queries:
+  - name: top_customers_by_revenue
+    question: Who are our top 10 customers by total won revenue?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        ACCOUNT_NAME as customer_name,
+        TOTAL_WON_REVENUE as total_revenue,
+        WON_OPPORTUNITIES as deals_won,
+        AVG_DEAL_SIZE as average_deal_size
+      FROM ANALYTICS.MART.DIM_CUSTOMER
+      WHERE TOTAL_WON_REVENUE > 0
+      ORDER BY TOTAL_WON_REVENUE DESC
+      LIMIT 10
+
+  - name: pipeline_by_stage
+    question: What is our current pipeline value broken down by sales stage?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        STAGE_NAME as sales_stage,
+        COUNT(*) as opportunity_count,
+        SUM(AMOUNT) as total_value,
+        AVG(PROBABILITY) as avg_probability,
+        SUM(AMOUNT * PROBABILITY / 100) as weighted_value
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_CLOSED = FALSE
+      GROUP BY STAGE_NAME
+      ORDER BY SUM(AMOUNT) DESC
+
+  - name: sales_rep_performance
+    question: How are our sales reps performing in terms of closed deals?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        OWNER_NAME as rep_name,
+        COUNT(*) as total_opportunities,
+        SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END) as won_opportunities,
+        SUM(CASE WHEN IS_WON THEN AMOUNT ELSE 0 END) as won_revenue,
+        ROUND(AVG(CASE WHEN IS_CLOSED THEN CASE WHEN IS_WON THEN 100.0 ELSE 0.0 END END), 1) as win_rate
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE OWNER_NAME IS NOT NULL
+      GROUP BY OWNER_NAME
+      ORDER BY won_revenue DESC
+
+  - name: revenue_by_product_family
+    question: What is our revenue broken down by product family?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        COALESCE(PRODUCT_FAMILY, 'Unassigned') as product_family,
+        COUNT(DISTINCT OPPORTUNITY_ID) as opportunity_count,
+        SUM(TOTAL_PRICE) as total_revenue,
+        ROUND(AVG(UNIT_PRICE), 2) as avg_unit_price
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY_LINE_ITEM
+      WHERE OPPORTUNITY_IS_WON = TRUE
+      GROUP BY PRODUCT_FAMILY
+      ORDER BY SUM(TOTAL_PRICE) DESC
+
+  - name: pipeline_by_industry
+    question: What does our pipeline look like by customer industry?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        COALESCE(ACCOUNT_INDUSTRY, 'Unknown') as industry,
+        COUNT(*) as opportunity_count,
+        SUM(AMOUNT) as pipeline_value,
+        ROUND(AVG(PROBABILITY), 1) as avg_probability
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_CLOSED = FALSE
+      GROUP BY ACCOUNT_INDUSTRY
+      ORDER BY pipeline_value DESC
+
+  - name: forecast_summary
+    question: What is our forecast for this quarter?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        FORECAST_CATEGORY,
+        COUNT(*) as opportunity_count,
+        SUM(AMOUNT) as total_amount,
+        SUM(AMOUNT * PROBABILITY / 100) as weighted_amount
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_CLOSED = FALSE
+        AND FISCAL_YEAR = YEAR(CURRENT_DATE())
+        AND FISCAL_QUARTER = CONCAT(YEAR(CURRENT_DATE()), '-Q', QUARTER(CURRENT_DATE()))
+      GROUP BY FORECAST_CATEGORY
+      ORDER BY total_amount DESC
+
+  - name: deals_with_projects
+    question: How many of our closed-won deals have linked delivery projects?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        CASE WHEN HAS_LINKED_PROJECT THEN 'Has Project' ELSE 'No Project' END as project_status,
+        COUNT(*) as deal_count,
+        SUM(AMOUNT) as total_revenue,
+        ROUND(AVG(AMOUNT), 2) as avg_deal_size
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_WON = TRUE
+      GROUP BY HAS_LINKED_PROJECT
+      ORDER BY deal_count DESC
+
+  - name: stale_accounts
+    question: Which customers have not had any sales activity in the last 45 days?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        ACCOUNT_NAME as customer_name,
+        LAST_ACTIVITY_DATE as last_activity,
+        DATEDIFF(day, LAST_ACTIVITY_DATE, CURRENT_DATE()) as days_since_activity,
+        TOTAL_WON_REVENUE as lifetime_revenue
+      FROM ANALYTICS.MART.DIM_CUSTOMER
+      WHERE LAST_ACTIVITY_DATE < DATEADD(day, -45, CURRENT_DATE())
+        AND TOTAL_WON_REVENUE > 0
+      ORDER BY TOTAL_WON_REVENUE DESC
+      LIMIT 20

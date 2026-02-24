@@ -1,0 +1,234 @@
+name: opportunities_view
+description: >
+  Semantic view for Salesforce Opportunities. Part of the Per-Fact Agent approach.
+  Use this view for questions about sales pipeline, deals, forecasting,
+  and opportunity management.
+
+tables:
+  - name: customers
+    description: Customer/Account dimension for opportunity analysis.
+    synonyms:
+      - accounts
+      - clients
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_CUSTOMER
+    dimensions:
+      - name: account_id
+        description: Salesforce Account ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: customer_name
+        description: Customer name
+        synonyms:
+          - account_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: industry
+        description: Industry classification
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: billing_country
+        description: Customer country
+        expr: BILLING_COUNTRY
+        data_type: VARCHAR
+    facts:
+      - name: total_won_revenue
+        description: Historical won revenue
+        expr: TOTAL_WON_REVENUE
+        data_type: NUMBER
+    metrics:
+      - name: customer_revenue
+        description: Sum of won revenue
+        expr: SUM(TOTAL_WON_REVENUE)
+
+  - name: sales_reps
+    description: Sales rep dimension.
+    synonyms:
+      - reps
+      - owners
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: DIM_USER
+    dimensions:
+      - name: user_id
+        description: Salesforce User ID
+        expr: SF_USER_ID
+        data_type: VARCHAR
+      - name: rep_name
+        description: Sales rep name
+        expr: FULL_NAME
+        data_type: VARCHAR
+      - name: department
+        description: Department
+        expr: DEPARTMENT
+        data_type: VARCHAR
+
+  - name: opportunities
+    description: Sales opportunity fact table.
+    synonyms:
+      - deals
+      - pipeline
+    base_table:
+      database: ANALYTICS
+      schema: MART
+      table: FACT_OPPORTUNITY
+    dimensions:
+      - name: opportunity_id
+        description: Opportunity ID
+        synonyms:
+          - deal_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: account_id
+        description: Account ID
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: owner_id
+        description: Owner ID
+        expr: OWNER_ID
+        data_type: VARCHAR
+      - name: opportunity_name
+        description: Deal name
+        synonyms:
+          - deal_name
+        expr: OPPORTUNITY_NAME
+        data_type: VARCHAR
+      - name: account_name
+        description: Customer name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: owner_name
+        description: Rep name
+        expr: OWNER_NAME
+        data_type: VARCHAR
+      - name: stage_name
+        description: Sales stage
+        synonyms:
+          - stage
+        expr: STAGE_NAME
+        data_type: VARCHAR
+      - name: deal_status
+        description: Deal status
+        expr: DEAL_STATUS
+        data_type: VARCHAR
+        is_enum: true
+      - name: forecast_category
+        description: Forecast category
+        expr: FORECAST_CATEGORY
+        data_type: VARCHAR
+        is_enum: true
+      - name: is_closed
+        description: Is closed
+        expr: IS_CLOSED
+        data_type: BOOLEAN
+      - name: is_won
+        description: Is won
+        expr: IS_WON
+        data_type: BOOLEAN
+      - name: fiscal_year
+        description: Fiscal year
+        expr: FISCAL_YEAR
+        data_type: NUMBER
+      - name: fiscal_quarter
+        description: Fiscal quarter
+        expr: FISCAL_QUARTER
+        data_type: VARCHAR
+    time_dimensions:
+      - name: close_date
+        description: Close date
+        expr: CLOSE_DATE
+        data_type: DATE
+      - name: created_date
+        description: Created date
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: amount
+        description: Deal amount
+        synonyms:
+          - deal_value
+          - revenue
+        expr: AMOUNT
+        data_type: NUMBER
+      - name: probability
+        description: Win probability
+        expr: PROBABILITY
+        data_type: NUMBER
+      - name: days_to_close
+        description: Days to close
+        expr: DAYS_TO_CLOSE
+        data_type: NUMBER
+    metrics:
+      - name: total_pipeline
+        description: Total pipeline value
+        expr: SUM(AMOUNT)
+      - name: total_won
+        description: Total won revenue
+        expr: SUM(CASE WHEN IS_WON THEN AMOUNT ELSE 0 END)
+      - name: opportunity_count
+        description: Number of opportunities
+        expr: COUNT(*)
+      - name: win_rate
+        description: Win rate percentage
+        expr: AVG(CASE WHEN IS_CLOSED THEN CASE WHEN IS_WON THEN 100.0 ELSE 0.0 END END)
+      - name: weighted_pipeline
+        description: Weighted pipeline
+        expr: SUM(AMOUNT * PROBABILITY / 100)
+    filters:
+      - name: open_deals
+        description: Open opportunities
+        expr: "IS_CLOSED = FALSE"
+      - name: won_deals
+        description: Won opportunities
+        expr: "IS_WON = TRUE"
+
+relationships:
+  - name: opportunity_to_customer
+    left_table: opportunities
+    right_table: customers
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+
+  - name: opportunity_to_rep
+    left_table: opportunities
+    right_table: sales_reps
+    relationship_columns:
+      - left_column: OWNER_ID
+        right_column: SF_USER_ID
+
+verified_queries:
+  - name: pipeline_by_stage
+    question: What is our pipeline by sales stage?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        STAGE_NAME as stage,
+        COUNT(*) as opportunity_count,
+        SUM(AMOUNT) as total_value
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE IS_CLOSED = FALSE
+      GROUP BY STAGE_NAME
+      ORDER BY total_value DESC
+
+  - name: rep_performance
+    question: How are reps performing?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      SELECT
+        OWNER_NAME as rep,
+        SUM(CASE WHEN IS_WON THEN AMOUNT ELSE 0 END) as won_revenue,
+        COUNT(CASE WHEN IS_WON THEN 1 END) as won_count
+      FROM ANALYTICS.MART.FACT_OPPORTUNITY
+      WHERE OWNER_NAME IS NOT NULL
+      GROUP BY OWNER_NAME
+      ORDER BY won_revenue DESC

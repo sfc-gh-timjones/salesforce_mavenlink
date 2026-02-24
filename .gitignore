@@ -1,0 +1,21 @@
+# Excluded from repo (customer already has raw data)
+_excluded/
+docs/
+
+# dbt artifacts (generated, not source)
+revenue_operations/target/
+revenue_operations/dbt_packages/
+revenue_operations/logs/
+revenue_operations/.user.yml
+
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
