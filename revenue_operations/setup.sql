@@ -86,10 +86,10 @@ CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION DBT_EXTERNAL_ACCESS
   COMMENT = 'Allows snow dbt to download dbt packages (dbt_utils, etc.)';
 
 -- ────────────────────────────────────────────────────────────
--- 5. Warehouse (use an existing one, or uncomment to create)
+-- 5. Warehouse
 -- ────────────────────────────────────────────────────────────
--- CREATE WAREHOUSE IF NOT EXISTS WH_XS
---   WAREHOUSE_SIZE = 'XSMALL'
---   AUTO_SUSPEND = 60
---   AUTO_RESUME = TRUE;
--- GRANT USAGE ON WAREHOUSE WH_XS TO ROLE <YOUR_DBT_ROLE>;
+CREATE WAREHOUSE IF NOT EXISTS MY_WAREHOUSE
+  WAREHOUSE_SIZE = 'XSMALL'
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = TRUE;
+GRANT USAGE ON WAREHOUSE MY_WAREHOUSE TO ROLE <YOUR_DBT_ROLE>;

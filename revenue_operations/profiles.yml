@@ -6,4 +6,4 @@ revenue_operations:
       database: ANALYTICS
       role: KEY_PAIR_ROLE
       schema: MART
-      warehouse: WH_XS
+      warehouse: MY_WAREHOUSE
