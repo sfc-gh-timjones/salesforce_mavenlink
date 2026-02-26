@@ -24,6 +24,17 @@
 USE ROLE ACCOUNTADMIN;
 
 -- ────────────────────────────────────────────────────────────
+-- 5. Warehouse
+-- ────────────────────────────────────────────────────────────
+CREATE WAREHOUSE IF NOT EXISTS MY_WAREHOUSE
+  WAREHOUSE_SIZE = 'XSMALL'
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = TRUE;
+GRANT USAGE ON WAREHOUSE MY_WAREHOUSE TO ROLE <YOUR_DBT_ROLE>;
+
+USE WAREHOUSE MY_WAREHOUSE;
+
+-- ────────────────────────────────────────────────────────────
 -- 1. Create the analytics database
 -- ────────────────────────────────────────────────────────────
 CREATE DATABASE IF NOT EXISTS ANALYTICS
@@ -85,11 +96,3 @@ CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION DBT_EXTERNAL_ACCESS
   ENABLED = TRUE
   COMMENT = 'Allows snow dbt to download dbt packages (dbt_utils, etc.)';
 
--- ────────────────────────────────────────────────────────────
--- 5. Warehouse
--- ────────────────────────────────────────────────────────────
-CREATE WAREHOUSE IF NOT EXISTS MY_WAREHOUSE
-  WAREHOUSE_SIZE = 'XSMALL'
-  AUTO_SUSPEND = 60
-  AUTO_RESUME = TRUE;
-GRANT USAGE ON WAREHOUSE MY_WAREHOUSE TO ROLE <YOUR_DBT_ROLE>;
