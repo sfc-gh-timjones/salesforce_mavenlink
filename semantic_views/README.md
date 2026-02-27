@@ -196,7 +196,6 @@ Use these questions to test each agent configuration:
 ### Cross-System Questions (Tests cross-system capability)
 1. "Which customers have the best project margins?"
 2. "Which sales reps sell deals that deliver profitably?"
-3. "What top customers have no recent project activity?"
 4. "What is the margin by customer industry?"
 
 ### Complex Questions (Stress test)

@@ -178,12 +178,14 @@ tables:
           - salesforce_user_id
         expr: SF_USER_ID
         data_type: VARCHAR
+        unique: true
       - name: ml_user_id
         description: Mavenlink User ID
         synonyms:
           - mavenlink_user_id
         expr: ML_USER_ID
         data_type: VARCHAR
+        unique: true
       - name: user_name
         description: Full name of the user
         synonyms:
@@ -217,6 +219,10 @@ tables:
         expr: MATCH_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "matched"
+          - "sf_only"
+          - "ml_only"
       - name: is_active_salesforce
         description: Whether user is active in Salesforce
         synonyms:
@@ -352,6 +358,11 @@ tables:
         expr: PROJECT_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "active"
+          - "completed"
+          - "archived"
+          - "cancelled"
       - name: is_budgeted
         description: Whether the project has a defined budget
         expr: IS_BUDGETED
@@ -624,13 +635,26 @@ tables:
         expr: DEAL_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "Open"
+          - "Won"
+          - "Lost"
       - name: opportunity_type
-        description: Type of opportunity (New Business, Renewal, etc.)
+        description: >
+          Type of opportunity. Use this to identify renewal deals vs new business.
+          Filter on 'Renewal' to find upcoming contract renewals.
         synonyms:
           - deal_type
           - type
+          - renewal_type
         expr: OPPORTUNITY_TYPE
         data_type: VARCHAR
+        is_enum: true
+        sample_values:
+          - "New Business"
+          - "Renewal"
+          - "Existing Business"
+          - "Add-On"
       - name: lead_source
         description: Source of the lead/opportunity
         synonyms:
@@ -645,6 +669,11 @@ tables:
         expr: FORECAST_CATEGORY
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "Pipeline"
+          - "Best Case"
+          - "Commit"
+          - "Closed"
       - name: is_closed
         description: Whether the opportunity is closed
         expr: IS_CLOSED
@@ -696,10 +725,14 @@ tables:
         data_type: VARCHAR
     time_dimensions:
       - name: close_date
-        description: Expected or actual close date
+        description: >
+          Expected or actual close date of the opportunity. For renewal
+          opportunities, this is the renewal date.
         synonyms:
           - expected_close_date
           - closed_date
+          - renewal_date
+          - contract_end_date
         expr: CLOSE_DATE
         data_type: DATE
       - name: created_date
@@ -829,6 +862,12 @@ tables:
       - name: closed_lost_deals
         description: Closed-lost opportunities
         expr: "IS_CLOSED = TRUE AND IS_WON = FALSE"
+      - name: renewals
+        description: Renewal opportunities (open or closed)
+        expr: "OPPORTUNITY_TYPE = 'Renewal'"
+      - name: upcoming_renewals
+        description: Open renewal opportunities closing in the next 4 months
+        expr: "OPPORTUNITY_TYPE = 'Renewal' AND IS_CLOSED = FALSE AND CLOSE_DATE BETWEEN CURRENT_DATE() AND DATEADD(month, 4, CURRENT_DATE())"
       - name: has_mavenlink_project
         description: Opportunities with linked Mavenlink projects
         expr: "HAS_LINKED_PROJECT = TRUE"
@@ -967,11 +1006,14 @@ tables:
   - name: time_entries
     description: >
       Time entry fact table from Mavenlink. Contains hours logged by
-      consultants on projects, with billing and cost information.
+      consultants on projects, with billing and cost information. Use this
+      table to find which employees are assigned to or working on a project
+      by aggregating hours per user per workspace.
     synonyms:
       - timesheets
       - hours
       - time_logs
+      - assignments
     base_table:
       database: ANALYTICS
       schema: MART
@@ -1059,9 +1101,11 @@ tables:
         expr: TASK_STATE
         data_type: VARCHAR
       - name: user_name
-        description: Name of the user who logged time
+        description: Name of the employee/consultant who logged time on the project
         synonyms:
           - consultant_name
+          - employee_name
+          - assigned_employee
         expr: USER_NAME
         data_type: VARCHAR
       - name: linked_opportunity_id
@@ -1197,6 +1241,11 @@ tables:
         expr: PROJECT_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "active"
+          - "completed"
+          - "archived"
+          - "cancelled"
       - name: is_overdue
         description: Whether the project is past due date
         synonyms:
@@ -1204,13 +1253,24 @@ tables:
         expr: IS_OVERDUE
         data_type: BOOLEAN
       - name: health_status
-        description: Calculated health status (At Risk, On Track, Completed, etc.)
+        description: >
+          Calculated health status of the project. 'At Risk' values indicate
+          projects that are behind — overdue, over budget, or burning too fast.
         synonyms:
           - risk_status
           - project_health
+          - behind
         expr: HEALTH_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "At Risk - Over Budget"
+          - "At Risk - Overdue"
+          - "At Risk - High Burn"
+          - "On Track"
+          - "In Progress"
+          - "Completed"
+          - "Cancelled"
       - name: linked_opportunity_id
         description: ID of linked Salesforce opportunity
         expr: LINKED_OPPORTUNITY_ID
@@ -1452,6 +1512,11 @@ tables:
         expr: PROJECT_STATUS
         data_type: VARCHAR
         is_enum: true
+        sample_values:
+          - "active"
+          - "completed"
+          - "archived"
+          - "cancelled"
     time_dimensions:
       - name: deal_close_date
         description: Date the deal closed
@@ -1995,3 +2060,85 @@ verified_queries:
       WHERE DEAL_IS_WON = TRUE
         AND PROJECT_STATUS IN ('active', 'not started')
       ORDER BY DEAL_AMOUNT DESC
+
+  - name: project_health_vs_deal_profitability
+    question: How does project health status correlate with deal profitability for each customer?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    sql: |
+      SELECT
+        c.ACCOUNT_NAME as customer_name,
+        ps.PROJECT_NAME,
+        ps.HEALTH_STATUS,
+        ps.PERCENTAGE_COMPLETE,
+        d2d.DEAL_AMOUNT,
+        d2d.PROJECT_REVENUE,
+        d2d.MARGIN_PCT
+      FROM ANALYTICS.MART.FACT_PROJECT_STATUS ps
+      JOIN ANALYTICS.MART.DIM_PROJECT p ON ps.WORKSPACE_ID = p.WORKSPACE_ID
+      JOIN ANALYTICS.MART.DIM_CUSTOMER c ON p.LINKED_ACCOUNT_ID = c.ACCOUNT_ID
+      JOIN ANALYTICS.MART.FACT_DEAL_TO_DELIVERY d2d ON c.ACCOUNT_ID = d2d.ACCOUNT_ID
+      WHERE ps.PROJECT_STATUS = 'active'
+      ORDER BY d2d.MARGIN_PCT DESC
+
+  - name: renewals_at_risk_with_employees
+    question: >
+      Show me customers that have a renewal coming up in the next 4 months
+      where we are behind on our projects. Who are the employees assigned
+      to these projects?
+    verified_by: Tim Jones
+    verified_at: 1740268800
+    use_as_onboarding_question: true
+    sql: |
+      WITH upcoming_renewals AS (
+        SELECT
+          OPPORTUNITY_ID,
+          ACCOUNT_ID,
+          ACCOUNT_NAME,
+          OPPORTUNITY_NAME,
+          AMOUNT as renewal_amount,
+          CLOSE_DATE as renewal_date
+        FROM ANALYTICS.MART.FACT_OPPORTUNITY
+        WHERE OPPORTUNITY_TYPE = 'Renewal'
+          AND IS_CLOSED = FALSE
+          AND CLOSE_DATE BETWEEN CURRENT_DATE() AND DATEADD(month, 4, CURRENT_DATE())
+      ),
+      at_risk_projects AS (
+        SELECT
+          WORKSPACE_ID,
+          PROJECT_NAME,
+          HEALTH_STATUS,
+          LINKED_ACCOUNT_ID,
+          ROUND(PERCENTAGE_COMPLETE, 1) as pct_complete,
+          ROUND(BUDGET_CONSUMED_PCT, 1) as budget_consumed_pct
+        FROM ANALYTICS.MART.FACT_PROJECT_STATUS
+        WHERE PROJECT_STATUS = 'active'
+          AND HEALTH_STATUS LIKE 'At Risk%'
+      ),
+      project_employees AS (
+        SELECT
+          te.WORKSPACE_ID,
+          u.FULL_NAME as employee_name,
+          u.TITLE as employee_title,
+          ROUND(SUM(te.TIME_IN_HOURS), 1) as hours_on_project
+        FROM ANALYTICS.MART.FACT_TIME_ENTRY te
+        JOIN ANALYTICS.MART.DIM_USER u ON te.USER_ID = u.ML_USER_ID
+        WHERE u.FULL_NAME IS NOT NULL
+        GROUP BY te.WORKSPACE_ID, u.FULL_NAME, u.TITLE
+      )
+      SELECT
+        r.ACCOUNT_NAME as customer_name,
+        r.OPPORTUNITY_NAME as renewal_opportunity,
+        r.renewal_amount,
+        r.renewal_date,
+        ar.PROJECT_NAME,
+        ar.HEALTH_STATUS,
+        ar.pct_complete,
+        ar.budget_consumed_pct,
+        pe.employee_name,
+        pe.employee_title,
+        pe.hours_on_project
+      FROM upcoming_renewals r
+      INNER JOIN at_risk_projects ar ON r.ACCOUNT_ID = ar.LINKED_ACCOUNT_ID
+      LEFT JOIN project_employees pe ON ar.WORKSPACE_ID = pe.WORKSPACE_ID
+      ORDER BY r.renewal_date ASC, pe.hours_on_project DESC
