@@ -215,14 +215,14 @@ tables:
         expr: DEPARTMENT
         data_type: VARCHAR
       - name: match_status
-        description: Whether user exists in both systems (matched/sf_only/ml_only)
+        description: Whether user exists in both systems (Matched/Salesforce Only/Mavenlink Only)
         expr: MATCH_STATUS
         data_type: VARCHAR
         is_enum: true
         sample_values:
-          - "matched"
-          - "sf_only"
-          - "ml_only"
+          - "Matched"
+          - "Salesforce Only"
+          - "Mavenlink Only"
       - name: is_active_salesforce
         description: Whether user is active in Salesforce
         synonyms:
@@ -257,7 +257,7 @@ tables:
     filters:
       - name: matched_users
         description: Users present in both Salesforce and Mavenlink
-        expr: "MATCH_STATUS = 'matched'"
+        expr: "MATCH_STATUS = 'Matched'"
       - name: delivery_team
         description: Users with Mavenlink IDs (consultants)
         expr: "ML_USER_ID IS NOT NULL"
@@ -628,6 +628,14 @@ tables:
           - pipeline_stage
         expr: STAGE_NAME
         data_type: VARCHAR
+        is_enum: true
+        sample_values:
+          - "Closed Won"
+          - "Closed Lost"
+          - "Discovery"
+          - "Negotiation"
+          - "Deal Imminent"
+          - "Scope / Use Case"
       - name: deal_status
         description: High-level deal status (Open, Won, Lost)
         synonyms:
@@ -653,8 +661,8 @@ tables:
         sample_values:
           - "New Business"
           - "Renewal"
-          - "Existing Business"
-          - "Add-On"
+          - "Amendment"
+          - "Cross-Sell"
       - name: lead_source
         description: Source of the lead/opportunity
         synonyms:
@@ -663,7 +671,7 @@ tables:
         expr: LEAD_SOURCE
         data_type: VARCHAR
       - name: forecast_category
-        description: Forecast category (Pipeline, Best Case, Commit, Closed)
+        description: Forecast category (Pipeline, Best Case, Commit, Closed, Omitted)
         synonyms:
           - forecast
         expr: FORECAST_CATEGORY
@@ -674,6 +682,7 @@ tables:
           - "Best Case"
           - "Commit"
           - "Closed"
+          - "Omitted"
       - name: is_closed
         description: Whether the opportunity is closed
         expr: IS_CLOSED
@@ -2118,13 +2127,12 @@ verified_queries:
       project_employees AS (
         SELECT
           te.WORKSPACE_ID,
-          u.FULL_NAME as employee_name,
-          u.TITLE as employee_title,
+          te.USER_NAME as employee_name,
+          'Consultant' as employee_title,
           ROUND(SUM(te.TIME_IN_HOURS), 1) as hours_on_project
         FROM ANALYTICS.MART.FACT_TIME_ENTRY te
-        JOIN ANALYTICS.MART.DIM_USER u ON te.USER_ID = u.ML_USER_ID
-        WHERE u.FULL_NAME IS NOT NULL
-        GROUP BY te.WORKSPACE_ID, u.FULL_NAME, u.TITLE
+        WHERE te.USER_NAME IS NOT NULL
+        GROUP BY te.WORKSPACE_ID, te.USER_NAME
       )
       SELECT
         r.ACCOUNT_NAME as customer_name,
