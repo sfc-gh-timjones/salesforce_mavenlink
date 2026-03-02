@@ -1,21 +1,15 @@
-# Excluded from repo (customer already has raw data)
-_excluded/
-docs/
+# Ignore everything by default
+*
 
-# dbt artifacts (generated, not source)
-revenue_operations/target/
-revenue_operations/dbt_packages/
-revenue_operations/logs/
-revenue_operations/.user.yml
+# Only include Clean Star Schema directory
+!Clean Star Schema/
+!Clean Star Schema/**
 
-# Python artifacts
-__pycache__/
-*.pyc
-.venv/
-venv/
+# But ignore these within Clean Star Schema
+Clean Star Schema/logs/
+Clean Star Schema/aggregation_reference.yaml
+Clean Star Schema/clean_star/logs/
+Clean Star Schema/clean_star/.user.yml
 
-# IDE and OS
-.DS_Store
-.idea/
-.vscode/
-*.swp
+# Also keep .gitignore itself
+!.gitignore

@@ -1,0 +1,12 @@
+clean_star:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: sfsenorthamerica-tim_jones_demo
+      user: COCO
+      role: ACCOUNTADMIN
+      warehouse: WH_XS
+      database: ANALYTICS2
+      schema: public
+      threads: 4

@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: salesforce
+    database: BRONZE
+    schema: SALESFORCE
+    tables:
+      - name: opportunity
+        identifier: OPPORTUNITY
+      - name: opportunity_line_item
+        identifier: OPPORTUNITY_LINE_ITEM
+      - name: account
+        identifier: ACCOUNT
+      - name: product_2
+        identifier: PRODUCT_2
+      - name: user
+        identifier: USER
+
+  - name: mavenlink
+    database: BRONZE
+    schema: MAVENLINK
+    tables:
+      - name: workspace
+        identifier: WORKSPACE
+      - name: time_entry
+        identifier: TIME_ENTRY
+      - name: user
+        identifier: USER
+      - name: story
+        identifier: STORY

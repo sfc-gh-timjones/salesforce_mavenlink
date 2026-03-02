@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean Star Schema ERD - ANALYTICS2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 20px 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .header p {
+            color: #888;
+            margin-top: 5px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            padding: 12px 18px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+        }
+        .stat-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .container {
+            padding: 30px;
+        }
+        
+        /* Star Schema Diagram */
+        .star-diagram {
+            position: relative;
+            width: 100%;
+            height: 850px;
+            margin-bottom: 40px;
+        }
+        
+        /* SVG for relationship lines */
+        .star-diagram svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .relationship-line {
+            stroke: #4ecdc4;
+            stroke-width: 2;
+            fill: none;
+            opacity: 0.6;
+        }
+        .relationship-line:hover {
+            opacity: 1;
+            stroke-width: 3;
+        }
+        .line-label {
+            fill: #888;
+            font-size: 10px;
+            font-family: monospace;
+        }
+        
+        /* Table Cards */
+        .table-card {
+            position: absolute;
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+        .table-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            z-index: 10;
+        }
+        
+        /* Fact Table - Center */
+        .table-card.fact {
+            width: 380px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-color: #ff6b6b;
+            box-shadow: 0 0 30px rgba(255,107,107,0.3);
+        }
+        .table-card.fact:hover {
+            transform: translate(-50%, -50%) scale(1.02);
+        }
+        
+        /* Dimension Tables - Corners */
+        .table-card.dimension {
+            width: 280px;
+            border-color: #4ecdc4;
+            max-height: 320px;
+        }
+        .table-card.dimension .columns-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .table-card.dim-customer {
+            left: 5%;
+            top: 5%;
+        }
+        .table-card.dim-user {
+            right: 5%;
+            top: 5%;
+        }
+        .table-card.dim-product {
+            left: 5%;
+            bottom: 5%;
+        }
+        .table-card.dim-project {
+            right: 5%;
+            bottom: 5%;
+        }
+        
+        .table-header {
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.4);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .table-name {
+            font-weight: 600;
+            font-size: 12px;
+            color: #fff;
+        }
+        .table-badge {
+            font-size: 9px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .badge-fact { background: #ff6b6b; color: #fff; }
+        .badge-dim { background: #4ecdc4; color: #1a1a2e; }
+        
+        .columns-list {
+            padding: 8px 0;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .column {
+            padding: 5px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            border-left: 3px solid transparent;
+        }
+        .column:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .column.pk {
+            border-left-color: #ffd700;
+            background: rgba(255,215,0,0.1);
+        }
+        .column.fk {
+            border-left-color: #4ecdc4;
+            background: rgba(78,205,196,0.1);
+        }
+        .column-name {
+            color: #e0e0e0;
+        }
+        .column-type {
+            color: #666;
+            font-size: 9px;
+        }
+        .key-icon {
+            margin-right: 4px;
+            font-size: 9px;
+        }
+        .key-icon.pk { color: #ffd700; }
+        .key-icon.fk { color: #4ecdc4; }
+        .more-columns {
+            color: #555;
+            font-style: italic;
+            padding: 5px 12px;
+            font-size: 10px;
+        }
+
+        /* Layers Section */
+        .layer {
+            margin-top: 40px;
+        }
+        .layer-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 3px solid;
+        }
+        .layer-title.intermediate { border-color: #ffe66d; }
+        .layer-title.staging { border-color: #4ecdc4; }
+        
+        .tables-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .table-card-small {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            width: 280px;
+        }
+        .table-card-small.intermediate {
+            border-color: #ffe66d;
+        }
+        .table-card-small.staging {
+            border-color: rgba(78,205,196,0.5);
+        }
+        .badge-int { background: #ffe66d; color: #1a1a2e; }
+        .badge-stg { background: rgba(78,205,196,0.7); color: #1a1a2e; }
+
+        /* Lineage */
+        .lineage {
+            margin-top: 40px;
+        }
+        .lineage h3 {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        .lineage-diagram {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        .lineage-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 200px;
+        }
+        .lineage-header {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .lineage-item {
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: monospace;
+            border-left: 3px solid;
+        }
+        .lineage-item.bronze { border-color: #cd7f32; }
+        .lineage-item.staging { border-color: #4ecdc4; }
+        .lineage-item.intermediate { border-color: #ffe66d; }
+        .lineage-item.mart { border-color: #ff6b6b; }
+        .lineage-arrow {
+            display: flex;
+            align-items: center;
+            color: #444;
+            font-size: 18px;
+            padding-top: 50px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Clean Star Schema - Entity Relationship Diagram</h1>
+        <p>Database: ANALYTICS2 | Grain: Opportunity (1:1 with Workspace)</p>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Fact Table</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Dimensions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">3</div>
+                <div class="stat-label">Intermediate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">9</div>
+                <div class="stat-label">Staging Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">125,606</div>
+                <div class="stat-label">Fact Rows</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Star Schema Diagram -->
+        <div class="star-diagram" id="starDiagram">
+            <!-- SVG for relationship lines -->
+            <svg id="relationshipSvg">
+                <!-- Lines will be drawn by JavaScript -->
+            </svg>
+
+            <!-- DIM_CUSTOMER - Top Left -->
+            <div class="table-card dimension dim-customer" id="dimCustomer">
+                <div class="table-header">
+                    <span class="table-name">DIM_CUSTOMER</span>
+                    <span class="table-badge badge-dim">Dimension</span>
+                </div>
+                <div class="columns-list">
+                    <div class="column pk"><span><span class="key-icon pk">🔑</span>ACCOUNT_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>ACCOUNT_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>INDUSTRY</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>ANNUAL_REVENUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>NUMBER_OF_EMPLOYEES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>BILLING_CITY</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>BILLING_STATE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>BILLING_COUNTRY</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>BILLING_POSTAL_CODE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PHONE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>WEBSITE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>OWNER_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>LAST_ACTIVITY_DATE</span><span class="column-type">DATE</span></div>
+                    <div class="column"><span>CREATED_DATE</span><span class="column-type">TIMESTAMP</span></div>
+                    <div class="column"><span>TOTAL_OPPORTUNITIES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>WON_OPPORTUNITIES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>LOST_OPPORTUNITIES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>OPEN_OPPORTUNITIES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>TOTAL_WON_REVENUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>OPEN_PIPELINE_VALUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>AVG_WON_DEAL_SIZE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>WIN_RATE_PCT</span><span class="column-type">NUMBER</span></div>
+                </div>
+            </div>
+
+            <!-- DIM_USER - Top Right -->
+            <div class="table-card dimension dim-user" id="dimUser">
+                <div class="table-header">
+                    <span class="table-name">DIM_USER</span>
+                    <span class="table-badge badge-dim">Dimension</span>
+                </div>
+                <div class="columns-list">
+                    <div class="column pk"><span><span class="key-icon pk">🔑</span>SF_USER_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>ML_USER_ID</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>FULL_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>EMAIL</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>SF_TITLE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>ML_TITLE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>DEPARTMENT</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>IS_ACTIVE_SALESFORCE</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>MANAGER_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>MATCH_STATUS</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>ML_ACTIVE_PROJECTS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>ML_TOTAL_HOURS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>ML_BILLABLE_HOURS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>ML_UTILIZATION_PCT</span><span class="column-type">NUMBER</span></div>
+                </div>
+            </div>
+
+            <!-- FACT_OPPORTUNITY_DELIVERY - Center -->
+            <div class="table-card fact" id="factTable">
+                <div class="table-header">
+                    <span class="table-name">FACT_OPPORTUNITY_DELIVERY</span>
+                    <span class="table-badge badge-fact">Fact</span>
+                </div>
+                <div class="columns-list">
+                    <div class="column pk"><span><span class="key-icon pk">🔑</span>OPPORTUNITY_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column fk"><span><span class="key-icon fk">→</span>ACCOUNT_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column fk"><span><span class="key-icon fk">→</span>SALES_REP_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column fk"><span><span class="key-icon fk">→</span>PRIMARY_PRODUCT_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column fk"><span><span class="key-icon fk">→</span>WORKSPACE_ID</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>OPPORTUNITY_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>STAGE_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>DEAL_AMOUNT</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>IS_WON</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>LINE_ITEM_COUNT</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>TOTAL_LINE_ITEM_VALUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>PROJECT_TOTAL_HOURS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>PROJECT_REVENUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>PROJECT_GROSS_MARGIN</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>PROJECT_LEAD_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>REVENUE_REALIZATION_PCT</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>MARGIN_PCT</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>DEAL_DELIVERY_STATUS</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PROJECT_HEALTH_STATUS</span><span class="column-type">TEXT</span></div>
+                    <div class="more-columns">+ 52 more columns</div>
+                </div>
+            </div>
+
+            <!-- DIM_PRODUCT - Bottom Left -->
+            <div class="table-card dimension dim-product" id="dimProduct">
+                <div class="table-header">
+                    <span class="table-name">DIM_PRODUCT</span>
+                    <span class="table-badge badge-dim">Dimension</span>
+                </div>
+                <div class="columns-list">
+                    <div class="column pk"><span><span class="key-icon pk">🔑</span>PRODUCT_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PRODUCT_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PRODUCT_CODE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PRODUCT_DESCRIPTION</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PRODUCT_FAMILY</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>IS_ACTIVE</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>CURRENCY_ISO_CODE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>CREATED_DATE</span><span class="column-type">TIMESTAMP</span></div>
+                    <div class="column"><span>TIMES_SOLD</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>UNIQUE_OPPORTUNITIES</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>TOTAL_REVENUE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>TOTAL_QUANTITY_SOLD</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>AVG_SELLING_PRICE</span><span class="column-type">NUMBER</span></div>
+                </div>
+            </div>
+
+            <!-- DIM_PROJECT - Bottom Right -->
+            <div class="table-card dimension dim-project" id="dimProject">
+                <div class="table-header">
+                    <span class="table-name">DIM_PROJECT</span>
+                    <span class="table-badge badge-dim">Dimension</span>
+                </div>
+                <div class="columns-list">
+                    <div class="column pk"><span><span class="key-icon pk">🔑</span>WORKSPACE_ID</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>PROJECT_NAME</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PROJECT_DESCRIPTION</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>PROJECT_STATUS</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>STATUS_MESSAGE</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>START_DATE</span><span class="column-type">DATE</span></div>
+                    <div class="column"><span>DUE_DATE</span><span class="column-type">DATE</span></div>
+                    <div class="column"><span>EFFECTIVE_DUE_DATE</span><span class="column-type">DATE</span></div>
+                    <div class="column"><span>PERCENTAGE_COMPLETE</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>IS_BUDGETED</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>BUDGET_DOLLARS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>BUDGET_USED_DOLLARS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>BUDGET_REMAINING_DOLLARS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>IS_OVER_BUDGET</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>IS_ARCHIVED</span><span class="column-type">BOOLEAN</span></div>
+                    <div class="column"><span>CURRENCY</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>LINKED_OPPORTUNITY_ID</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>HEALTH_STATUS</span><span class="column-type">TEXT</span></div>
+                    <div class="column"><span>TOTAL_HOURS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>BILLABLE_HOURS</span><span class="column-type">NUMBER</span></div>
+                    <div class="column"><span>GROSS_MARGIN</span><span class="column-type">NUMBER</span></div>
+                    <div class="more-columns">+ 24 more columns</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Intermediate Layer -->
+        <div class="layer">
+            <div class="layer-title intermediate">Intermediate Layer (ANALYTICS2.INT) - Aggregations</div>
+            <div class="tables-grid">
+                <div class="table-card-small intermediate">
+                    <div class="table-header">
+                        <span class="table-name">INT_OPPORTUNITY_LINE_ITEM_SUMMARY</span>
+                        <span class="table-badge badge-int">Agg</span>
+                    </div>
+                    <div class="columns-list">
+                        <div class="column pk"><span><span class="key-icon pk">🔑</span>OPPORTUNITY_ID</span><span class="column-type">TEXT</span></div>
+                        <div class="column"><span>LINE_ITEM_COUNT</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>TOTAL_LINE_ITEM_VALUE</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>PRIMARY_PRODUCT_ID</span><span class="column-type">TEXT</span></div>
+                        <div class="column"><span>PRIMARY_PRODUCT_NAME</span><span class="column-type">TEXT</span></div>
+                    </div>
+                </div>
+                <div class="table-card-small intermediate">
+                    <div class="table-header">
+                        <span class="table-name">INT_WORKSPACE_TIME_SUMMARY</span>
+                        <span class="table-badge badge-int">Agg</span>
+                    </div>
+                    <div class="columns-list">
+                        <div class="column pk"><span><span class="key-icon pk">🔑</span>WORKSPACE_ID</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>TOTAL_HOURS</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>BILLABLE_HOURS</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>TOTAL_REVENUE</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>GROSS_MARGIN</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>TOP_CONTRIBUTOR_NAME</span><span class="column-type">TEXT</span></div>
+                    </div>
+                </div>
+                <div class="table-card-small intermediate">
+                    <div class="table-header">
+                        <span class="table-name">INT_WORKSPACE_STORY_SUMMARY</span>
+                        <span class="table-badge badge-int">Agg</span>
+                    </div>
+                    <div class="columns-list">
+                        <div class="column pk"><span><span class="key-icon pk">🔑</span>WORKSPACE_ID</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>TOTAL_STORIES</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>COMPLETED_STORIES</span><span class="column-type">NUMBER</span></div>
+                        <div class="column"><span>STORY_COMPLETION_PCT</span><span class="column-type">NUMBER</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staging Layer -->
+        <div class="layer">
+            <div class="layer-title staging">Staging Layer (ANALYTICS2.STG) - Source Views</div>
+            <div class="tables-grid">
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_SALESFORCE__OPPORTUNITY</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_SALESFORCE__OPPORTUNITY_LINE_ITEM</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_SALESFORCE__ACCOUNT</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_SALESFORCE__USER</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_SALESFORCE__PRODUCT</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_MAVENLINK__WORKSPACE</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_MAVENLINK__TIME_ENTRY</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_MAVENLINK__STORY</span><span class="table-badge badge-stg">View</span></div></div>
+                <div class="table-card-small staging"><div class="table-header"><span class="table-name">STG_MAVENLINK__USER</span><span class="table-badge badge-stg">View</span></div></div>
+            </div>
+        </div>
+
+        <!-- Aggregation Detail -->
+        <div class="layer">
+            <div class="layer-title" style="border-color: #ff9f43;">Aggregation Detail - Lower Level Tables Rolled Up to Fact</div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Line Items -->
+                <div style="flex: 1; min-width: 300px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #ff9f43;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #ff9f43; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">SOURCE</span>
+                        <span style="font-weight: 600; color: #fff;">OPPORTUNITY_LINE_ITEM</span>
+                        <span style="color: #666; font-size: 11px;">→ per Opportunity</span>
+                    </div>
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px;">Aggregated Measures in Fact Table:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">LINE_ITEM_COUNT</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">UNIQUE_PRODUCTS</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">UNIQUE_PRODUCT_FAMILIES</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">TOTAL_LINE_ITEM_VALUE</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">AVG_UNIT_PRICE</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">AVG_DISCOUNT_PCT</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PRIMARY_PRODUCT_*</span>
+                        <span style="background: rgba(255,159,67,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">ALL_PRODUCT_FAMILIES</span>
+                    </div>
+                </div>
+                <!-- Time Entries -->
+                <div style="flex: 1; min-width: 300px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #a55eea;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #a55eea; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">SOURCE</span>
+                        <span style="font-weight: 600; color: #fff;">TIME_ENTRY</span>
+                        <span style="color: #666; font-size: 11px;">→ per Workspace</span>
+                    </div>
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px;">Aggregated Measures in Fact Table:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_TOTAL_HOURS</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_BILLABLE_HOURS</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_NON_BILLABLE_HOURS</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_REVENUE</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_COST</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_GROSS_MARGIN</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_BILLABILITY_PCT</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_AVG_BILL_RATE</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_AVG_COST_RATE</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_TEAM_SIZE</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_FIRST_TIME_ENTRY</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_LAST_TIME_ENTRY</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_ACTIVE_SPAN_DAYS</span>
+                        <span style="background: rgba(165,94,234,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_LEAD_*</span>
+                    </div>
+                </div>
+                <!-- Stories -->
+                <div style="flex: 1; min-width: 300px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #26de81;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #26de81; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">SOURCE</span>
+                        <span style="font-weight: 600; color: #fff;">STORY</span>
+                        <span style="color: #666; font-size: 11px;">→ per Workspace</span>
+                    </div>
+                    <div style="font-size: 11px; color: #888; margin-bottom: 8px;">Aggregated Measures in Fact Table:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(38,222,129,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_TOTAL_TASKS</span>
+                        <span style="background: rgba(38,222,129,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_COMPLETED_TASKS</span>
+                        <span style="background: rgba(38,222,129,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_IN_PROGRESS_TASKS</span>
+                        <span style="background: rgba(38,222,129,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_TASK_COMPLETION_PCT</span>
+                        <span style="background: rgba(38,222,129,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_ESTIMATED_HOURS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Opportunity-Level Fields -->
+        <div class="layer">
+            <div class="layer-title" style="border-color: #ff6b6b;">Opportunity-Level Fields in Fact Table (from Salesforce)</div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Deal Core Fields -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #ff6b6b;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #ff6b6b; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">DEAL INFO</span>
+                        <span style="font-weight: 600; color: #fff;">Opportunity Core</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">OPPORTUNITY_ID</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">OPPORTUNITY_NAME</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">STAGE_NAME</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">OPPORTUNITY_TYPE</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">LEAD_SOURCE</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">FORECAST_CATEGORY</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">IS_CLOSED</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">IS_WON</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">CURRENCY_ISO_CODE</span>
+                    </div>
+                </div>
+                <!-- Deal Measures -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #ff6b6b;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #ff6b6b; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">MEASURES</span>
+                        <span style="font-weight: 600; color: #fff;">Deal Financials</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DEAL_AMOUNT</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROBABILITY</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PUSH_COUNT</span>
+                    </div>
+                </div>
+                <!-- Deal Dates -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #ff6b6b;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #ff6b6b; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">DATES</span>
+                        <span style="font-weight: 600; color: #fff;">Deal Timeline</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DEAL_CLOSE_DATE</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DEAL_CREATED_DATE</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DEAL_LAST_ACTIVITY_DATE</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">FISCAL_QUARTER</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">FISCAL_YEAR</span>
+                    </div>
+                </div>
+                <!-- Denormalized Account/Rep -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #ff6b6b;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #ff6b6b; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">DENORM</span>
+                        <span style="font-weight: 600; color: #fff;">Quick Access</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">ACCOUNT_NAME</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">INDUSTRY</span>
+                        <span style="background: rgba(255,107,107,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">SALES_REP_NAME</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workspace/Project-Level Fields -->
+        <div class="layer">
+            <div class="layer-title" style="border-color: #4ecdc4;">Workspace-Level Fields in Fact Table (from Mavenlink)</div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Project Core -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #4ecdc4;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #4ecdc4; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">PROJECT</span>
+                        <span style="font-weight: 600; color: #fff;">Workspace Info</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">WORKSPACE_ID</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_NAME</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_STATUS</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_PCT_COMPLETE</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">HAS_LINKED_PROJECT</span>
+                    </div>
+                </div>
+                <!-- Project Dates -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #4ecdc4;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #4ecdc4; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">DATES</span>
+                        <span style="font-weight: 600; color: #fff;">Project Timeline</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_START_DATE</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_DUE_DATE</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_FIRST_TIME_ENTRY</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_LAST_TIME_ENTRY</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_ACTIVE_SPAN_DAYS</span>
+                    </div>
+                </div>
+                <!-- Project Budget -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #4ecdc4;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #4ecdc4; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">BUDGET</span>
+                        <span style="font-weight: 600; color: #fff;">Project Financials</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_BUDGET</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_SPEND</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_IS_OVER_BUDGET</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_REVENUE</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_COST</span>
+                        <span style="background: rgba(78,205,196,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_GROSS_MARGIN</span>
+                    </div>
+                </div>
+                <!-- Calculated Metrics -->
+                <div style="flex: 1; min-width: 280px; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 15px; border-left: 4px solid #f7b731;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <span style="background: #f7b731; color: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 600;">CALCULATED</span>
+                        <span style="font-weight: 600; color: #fff;">Derived Metrics</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">REVENUE_REALIZATION_PCT</span>
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">MARGIN_PCT</span>
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DAYS_CLOSE_TO_KICKOFF</span>
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PLANNED_PROJECT_DURATION_DAYS</span>
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">DEAL_DELIVERY_STATUS</span>
+                        <span style="background: rgba(247,183,49,0.2); padding: 3px 8px; border-radius: 3px; font-size: 10px; font-family: monospace;">PROJECT_HEALTH_STATUS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Lineage -->
+        <div class="lineage">
+            <h3>Data Lineage</h3>
+            <div class="lineage-diagram">
+                <div class="lineage-column">
+                    <div class="lineage-header">Bronze (Source)</div>
+                    <div class="lineage-item bronze">SALESFORCE.OPPORTUNITY</div>
+                    <div class="lineage-item bronze">SALESFORCE.OPPORTUNITY_LINE_ITEM</div>
+                    <div class="lineage-item bronze">SALESFORCE.ACCOUNT</div>
+                    <div class="lineage-item bronze">SALESFORCE.USER</div>
+                    <div class="lineage-item bronze">SALESFORCE.PRODUCT_2</div>
+                    <div class="lineage-item bronze">MAVENLINK.WORKSPACE</div>
+                    <div class="lineage-item bronze">MAVENLINK.TIME_ENTRY</div>
+                    <div class="lineage-item bronze">MAVENLINK.STORY</div>
+                    <div class="lineage-item bronze">MAVENLINK.USER</div>
+                </div>
+                <div class="lineage-arrow">→</div>
+                <div class="lineage-column">
+                    <div class="lineage-header">Staging (Clean)</div>
+                    <div class="lineage-item staging">stg_salesforce__opportunity</div>
+                    <div class="lineage-item staging">stg_salesforce__opportunity_line_item</div>
+                    <div class="lineage-item staging">stg_salesforce__account</div>
+                    <div class="lineage-item staging">stg_salesforce__user</div>
+                    <div class="lineage-item staging">stg_salesforce__product</div>
+                    <div class="lineage-item staging">stg_mavenlink__workspace</div>
+                    <div class="lineage-item staging">stg_mavenlink__time_entry</div>
+                    <div class="lineage-item staging">stg_mavenlink__story</div>
+                    <div class="lineage-item staging">stg_mavenlink__user</div>
+                </div>
+                <div class="lineage-arrow">→</div>
+                <div class="lineage-column">
+                    <div class="lineage-header">Intermediate (Aggregate)</div>
+                    <div class="lineage-item intermediate">int_opportunity_line_item_summary</div>
+                    <div class="lineage-item intermediate">int_workspace_time_summary</div>
+                    <div class="lineage-item intermediate">int_workspace_story_summary</div>
+                </div>
+                <div class="lineage-arrow">→</div>
+                <div class="lineage-column">
+                    <div class="lineage-header">Mart (Star Schema)</div>
+                    <div class="lineage-item mart">FACT_OPPORTUNITY_DELIVERY</div>
+                    <div class="lineage-item mart">DIM_CUSTOMER</div>
+                    <div class="lineage-item mart">DIM_USER</div>
+                    <div class="lineage-item mart">DIM_PRODUCT</div>
+                    <div class="lineage-item mart">DIM_PROJECT</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function drawRelationships() {
+            const svg = document.getElementById('relationshipSvg');
+            const diagram = document.getElementById('starDiagram');
+            const fact = document.getElementById('factTable');
+            const dimCustomer = document.getElementById('dimCustomer');
+            const dimUser = document.getElementById('dimUser');
+            const dimProduct = document.getElementById('dimProduct');
+            const dimProject = document.getElementById('dimProject');
+
+            // Get positions
+            const diagramRect = diagram.getBoundingClientRect();
+            const factRect = fact.getBoundingClientRect();
+            
+            function getCenter(el) {
+                const rect = el.getBoundingClientRect();
+                return {
+                    x: rect.left - diagramRect.left + rect.width / 2,
+                    y: rect.top - diagramRect.top + rect.height / 2
+                };
+            }
+            
+            function getEdgePoint(el, targetX, targetY) {
+                const rect = el.getBoundingClientRect();
+                const centerX = rect.left - diagramRect.left + rect.width / 2;
+                const centerY = rect.top - diagramRect.top + rect.height / 2;
+                
+                const angle = Math.atan2(targetY - centerY, targetX - centerX);
+                const w = rect.width / 2;
+                const h = rect.height / 2;
+                
+                // Find intersection with rectangle edge
+                let x, y;
+                const tanAngle = Math.abs(Math.tan(angle));
+                
+                if (tanAngle * w <= h) {
+                    // Intersects left or right edge
+                    x = centerX + (Math.cos(angle) > 0 ? w : -w);
+                    y = centerY + (Math.cos(angle) > 0 ? w : -w) * Math.tan(angle);
+                } else {
+                    // Intersects top or bottom edge
+                    y = centerY + (Math.sin(angle) > 0 ? h : -h);
+                    x = centerX + (Math.sin(angle) > 0 ? h : -h) / Math.tan(angle);
+                }
+                
+                return { x, y };
+            }
+
+            const factCenter = getCenter(fact);
+            
+            const relationships = [
+                { dim: dimCustomer, label: 'account_id', color: '#4ecdc4' },
+                { dim: dimUser, label: 'sales_rep_id → sf_user_id', color: '#4ecdc4' },
+                { dim: dimProduct, label: 'primary_product_id → product_id', color: '#4ecdc4' },
+                { dim: dimProject, label: 'workspace_id', color: '#4ecdc4' }
+            ];
+
+            let svgContent = '';
+            
+            relationships.forEach(rel => {
+                const dimCenter = getCenter(rel.dim);
+                const factEdge = getEdgePoint(fact, dimCenter.x, dimCenter.y);
+                const dimEdge = getEdgePoint(rel.dim, factCenter.x, factCenter.y);
+                
+                // Draw line
+                svgContent += `<line class="relationship-line" 
+                    x1="${factEdge.x}" y1="${factEdge.y}" 
+                    x2="${dimEdge.x}" y2="${dimEdge.y}" 
+                    stroke="${rel.color}" />`;
+                
+                // Draw label at midpoint
+                const midX = (factEdge.x + dimEdge.x) / 2;
+                const midY = (factEdge.y + dimEdge.y) / 2;
+                
+                // Calculate angle for text rotation
+                const angle = Math.atan2(dimEdge.y - factEdge.y, dimEdge.x - factEdge.x) * 180 / Math.PI;
+                const adjustedAngle = angle > 90 || angle < -90 ? angle + 180 : angle;
+                
+                svgContent += `<text class="line-label" 
+                    x="${midX}" y="${midY - 5}" 
+                    text-anchor="middle"
+                    transform="rotate(${adjustedAngle}, ${midX}, ${midY - 5})">${rel.label}</text>`;
+                
+                // Draw arrow at dimension end
+                const arrowSize = 8;
+                const arrowAngle = Math.atan2(dimEdge.y - factEdge.y, dimEdge.x - factEdge.x);
+                const arrowX1 = dimEdge.x - arrowSize * Math.cos(arrowAngle - Math.PI/6);
+                const arrowY1 = dimEdge.y - arrowSize * Math.sin(arrowAngle - Math.PI/6);
+                const arrowX2 = dimEdge.x - arrowSize * Math.cos(arrowAngle + Math.PI/6);
+                const arrowY2 = dimEdge.y - arrowSize * Math.sin(arrowAngle + Math.PI/6);
+                
+                svgContent += `<polygon points="${dimEdge.x},${dimEdge.y} ${arrowX1},${arrowY1} ${arrowX2},${arrowY2}" 
+                    fill="${rel.color}" opacity="0.8"/>`;
+            });
+            
+            svg.innerHTML = svgContent;
+        }
+
+        // Draw on load and resize
+        window.addEventListener('load', drawRelationships);
+        window.addEventListener('resize', drawRelationships);
+    </script>
+</body>
+</html>
