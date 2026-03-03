@@ -107,16 +107,6 @@ To use the agent in Snowflake Intelligence:
 4. Select `OPPORTUNITY_DELIVERY_AGENT` and add it
 5. Start asking questions!
 
-**Sample questions to get started:**
-- Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
-- Which products drive the most revenue and what are the typical deal structures, discounts, and line item patterns?
-- Show project delivery performance and resource utilization metrics broken down by project status.
-- Who are the top project leads by revenue and what is their track record on budget and delivery?
-- Which deals show significant revenue leakage between what was sold and what was actually delivered?
-- How does the speed of handoff from sales close to project kickoff impact delivery success and margin?
-- Which sales reps have the best win rates AND delivery outcomes - who are the full-cycle performers?
-- Which customers have the highest lifetime value when you combine their sales bookings with delivery profitability?
-
 ## Verification
 
 After deployment, test with these queries:
@@ -134,6 +124,19 @@ SELECT COUNT(*) FROM ANALYTICS2.MART.DIM_PROJECT;
 -- Test semantic view
 SELECT * FROM ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS LIMIT 10;
 ```
+
+## Sample Questions
+
+Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGENT` is selected, then try these questions:
+
+- Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
+- Which products drive the most revenue and what are the typical deal structures, discounts, and line item patterns?
+- Show project delivery performance and resource utilization metrics broken down by project status.
+- Who are the top project leads by revenue and what is their track record on budget and delivery?
+- Which deals show significant revenue leakage between what was sold and what was actually delivered?
+- How does the speed of handoff from sales close to project kickoff impact delivery success and margin?
+- Which sales reps have the best win rates AND delivery outcomes - who are the full-cycle performers?
+- Which customers have the highest lifetime value when you combine their sales bookings with delivery profitability?
 
 ## Files Reference
 
