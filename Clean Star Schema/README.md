@@ -55,22 +55,40 @@ CREATE SCHEMA IF NOT EXISTS ANALYTICS2.INT;
 CREATE SCHEMA IF NOT EXISTS ANALYTICS2.AGENTS;
 ```
 
-### Step 2: Import dbt Project
+### Step 2: Set Up Git Integration
+
+First, create the API integration for GitHub (one-time setup, requires ACCOUNTADMIN):
+
+```sql
+-- Create API integration for GitHub
+CREATE OR REPLACE API INTEGRATION github_api_integration
+  API_PROVIDER = git_https_api
+  API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-timjones/')
+  ENABLED = TRUE;
+
+-- Create Git repository
+CREATE OR REPLACE GIT REPOSITORY salesforce_mavenlink_repo
+  API_INTEGRATION = github_api_integration
+  ORIGIN = 'https://github.com/sfc-gh-timjones/salesforce_mavenlink.git';
+```
+
+### Step 3: Import dbt Project from Git
 
 1. Navigate to **Data » Workspaces**
 2. Click **Create Workspace** → **From Git Repository**
-3. Enter repository URL: `https://github.com/sfc-gh-timjones/salesforce_mavenlink.git`
-4. Set path to: `Clean Star Schema/clean_star`
+3. Select the `salesforce_mavenlink_repo` repository created above
+4. Set **Subdirectory** to: `Clean Star Schema/clean_star`
+   - This points to the folder containing `dbt_project.yml`
 5. Click **Create**
 
-### Step 3: Deploy and Run dbt Project
+### Step 4: Deploy and Run dbt Project
 
 1. Open the workspace created in Step 2
 2. Click **Deploy** to deploy the project
 3. Click **Run** to execute all models
 4. Verify all 17 models complete successfully
 
-### Step 4: Deploy Semantic View
+### Step 5: Deploy Semantic View
 
 Open `deploy_semantic_view.sql` in a Snowsight worksheet and run it (select all, then run).
 
@@ -80,7 +98,7 @@ SHOW SEMANTIC VIEWS IN ANALYTICS2.MART;
 DESC SEMANTIC VIEW ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS;
 ```
 
-### Step 5: Create Cortex Agent
+### Step 6: Create Cortex Agent
 
 Open `create_agent.sql` in a Snowsight worksheet and run it.
 
