@@ -57,35 +57,28 @@ CREATE SCHEMA IF NOT EXISTS ANALYTICS2.AGENTS;
 
 ### Step 2: Set Up Git Integration
 
-First, create the API integration for GitHub (one-time setup, requires ACCOUNTADMIN):
+Create the API integration for GitHub (one-time setup, requires ACCOUNTADMIN):
 
 ```sql
--- Create API integration for GitHub
-CREATE OR REPLACE API INTEGRATION github_api_integration
+CREATE OR REPLACE API INTEGRATION GIT_INTEGRATION
   API_PROVIDER = git_https_api
-  API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-timjones/')
+  API_ALLOWED_PREFIXES = ('https://github.com/')
   ENABLED = TRUE;
-
--- Create Git repository
-CREATE OR REPLACE GIT REPOSITORY salesforce_mavenlink_repo
-  API_INTEGRATION = github_api_integration
-  ORIGIN = 'https://github.com/sfc-gh-timjones/salesforce_mavenlink.git';
 ```
 
 ### Step 3: Import dbt Project from Git
 
 1. Navigate to **Data » Workspaces**
 2. Click **Create Workspace** → **From Git Repository**
-3. Select the `salesforce_mavenlink_repo` repository created above
-4. Set **Subdirectory** to: `Clean Star Schema/clean_star`
-   - This points to the folder containing `dbt_project.yml`
+3. Enter repository URL: `https://github.com/sfc-gh-timjones/salesforce_mavenlink.git`
+4. Select `GIT_INTEGRATION` as the API integration
 5. Click **Create**
 
 ### Step 4: Deploy and Run dbt Project
 
 1. Open the workspace created in Step 2
-2. Click **Deploy** to deploy the project
-3. Click **Run** to execute all models
+2. Click **Compile** (top of workspace) to compile the project
+3. Click the dropdown next to Compile, select **Run**, then click **Run** to execute all models
 4. Verify all 17 models complete successfully
 
 ### Step 5: Deploy Semantic View
@@ -107,6 +100,21 @@ Verify:
 DESCRIBE AGENT ANALYTICS2.AGENTS.OPPORTUNITY_DELIVERY_AGENT;
 ```
 
+To use the agent in Snowflake Intelligence:
+1. Navigate to **AI & ML » Snowflake Intelligence**
+2. Make sure `OPPORTUNITY_DELIVERY_AGENT` is selected
+3. Start asking questions!
+
+**Sample questions to get started:**
+- Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
+- Which products drive the most revenue and what are the typical deal structures, discounts, and line item patterns?
+- Show project delivery performance and resource utilization metrics broken down by project status.
+- Who are the top project leads by revenue and what is their track record on budget and delivery?
+- Which deals show significant revenue leakage between what was sold and what was actually delivered?
+- How does the speed of handoff from sales close to project kickoff impact delivery success and margin?
+- Which sales reps have the best win rates AND delivery outcomes - who are the full-cycle performers?
+- Which customers have the highest lifetime value when you combine their sales bookings with delivery profitability?
+
 ## Verification
 
 After deployment, test with these queries:
@@ -125,26 +133,14 @@ SELECT COUNT(*) FROM ANALYTICS2.MART.DIM_PROJECT;
 SELECT * FROM ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS LIMIT 10;
 ```
 
-## Sample Questions for Agent
-
-Once deployed, ask the agent:
-
-- "What is our total pipeline value by stage?"
-- "Who are the top 5 sales reps by closed-won revenue?"
-- "Which projects are at risk and over budget?"
-- "What is our average margin by product family?"
-- "Show me deals closed this quarter with their delivery status"
-
 ## Files Reference
 
 | File | Purpose |
 |------|---------|
 | `clean_star/` | dbt project with all models |
-| `semantic_views/opportunity_delivery_analytics.yaml` | Semantic view definition |
 | `create_agent.sql` | Agent creation script |
-| `deploy_semantic_view.py` | Python deployment script (CLI alternative) |
+| `deploy_semantic_view.sql` | Semantic view deployment script |
 | `erd.html` | Visual ERD diagram |
-| `reference_guide.md` | Detailed technical reference |
 
 ## Troubleshooting
 
