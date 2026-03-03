@@ -134,6 +134,8 @@ LIMIT 10;
 
 ## Sample Questions
 
+> **Note**: This demo uses synthetic data. Logic and null rates may differ from real production data.
+
 Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGENT` is selected, then try these questions:
 
 - Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
