@@ -68,15 +68,15 @@ CREATE OR REPLACE API INTEGRATION GIT_INTEGRATION
 
 ### Step 3: Import dbt Project from Git
 
-1. Navigate to **Data » Workspaces**
-2. Click **Create Workspace** → **From Git Repository**
+1. Navigate to **Projects » Workspaces**
+2. Click on the workspace name dropdown at the top, then select **Create from Git Repository**
 3. Enter repository URL: `https://github.com/sfc-gh-timjones/salesforce_mavenlink.git`
 4. Select `GIT_INTEGRATION` as the API integration
 5. Click **Create**
 
 ### Step 4: Deploy and Run dbt Project
 
-1. Open the workspace created in Step 2
+1. The workspace will open automatically after creation
 2. Click **Compile** (top of workspace) to compile the project
 3. Click the dropdown next to Compile, select **Run**, then click **Run** to execute all models
 4. Verify all 17 models complete successfully
@@ -122,7 +122,14 @@ SELECT COUNT(*) FROM ANALYTICS2.MART.DIM_PRODUCT;
 SELECT COUNT(*) FROM ANALYTICS2.MART.DIM_PROJECT;
 
 -- Test semantic view
-SELECT * FROM ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS LIMIT 10;
+SELECT * FROM SEMANTIC_VIEW(
+  ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS
+  DIMENSIONS FACT_OPPORTUNITY_DELIVERY.OPPORTUNITY_NAME, 
+             FACT_OPPORTUNITY_DELIVERY.ACCOUNT_NAME,
+             FACT_OPPORTUNITY_DELIVERY.STAGE_NAME
+  FACTS FACT_OPPORTUNITY_DELIVERY.DEAL_AMOUNT
+)
+LIMIT 10;
 ```
 
 ## Sample Questions
