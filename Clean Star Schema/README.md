@@ -154,7 +154,7 @@ Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGE
 | `clean_star/` | dbt project with all models |
 | `create_agent.sql` | Agent creation script |
 | `deploy_semantic_view.sql` | Semantic view deployment script |
-| `erd.html` | Visual ERD diagram |
+| `erd.html` | Visual ERD diagram (download to local machine to view) |
 
 ## Troubleshooting
 
