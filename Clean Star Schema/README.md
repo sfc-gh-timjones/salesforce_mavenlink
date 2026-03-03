@@ -70,7 +70,7 @@ CREATE OR REPLACE API INTEGRATION GIT_INTEGRATION
 
 1. Navigate to **Projects » Workspaces**
 2. Click on the workspace name dropdown at the top, then select **Create from Git Repository**
-3. Enter repository URL: `https://github.com/sfc-gh-timjones/salesforce_mavenlink.git`
+3. Enter repository URL: `https://github.com/sfc-gh-timjones/salesforce_mavenlink`
 4. Select `GIT_INTEGRATION` as the API integration
 5. Click **Create**
 
