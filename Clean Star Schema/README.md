@@ -162,4 +162,4 @@ Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGE
 
 **Semantic view error**: Ensure all mart tables exist before deploying
 
-**Agent not responding**: Verify semantic view is deployed and warehouse is running
+**Agent not responding**: Verify semantic view is deployed
