@@ -63,24 +63,16 @@ CREATE SCHEMA IF NOT EXISTS ANALYTICS2.AGENTS;
 4. Set path to: `Clean Star Schema/clean_star`
 5. Click **Create**
 
-### Step 3: Run dbt Project
+### Step 3: Deploy and Run dbt Project
 
 1. Open the workspace created in Step 2
-2. Click **Run** to execute all models
-3. Verify all 17 models complete successfully
+2. Click **Deploy** to deploy the project
+3. Click **Run** to execute all models
+4. Verify all 17 models complete successfully
 
 ### Step 4: Deploy Semantic View
 
-Run in a SQL worksheet (copy the entire block):
-
-```sql
-CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML(
-  'ANALYTICS2.MART',
-  $$
-<PASTE CONTENTS OF semantic_views/opportunity_delivery_analytics.yaml HERE>
-  $$
-);
-```
+Open `deploy_semantic_view.sql` in a Snowsight worksheet and run it (select all, then run).
 
 Verify deployment:
 ```sql
@@ -90,34 +82,7 @@ DESC SEMANTIC VIEW ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS;
 
 ### Step 5: Create Cortex Agent
 
-Run in a SQL worksheet:
-
-```sql
-CREATE OR REPLACE AGENT ANALYTICS2.AGENTS.OPPORTUNITY_DELIVERY_AGENT
-  COMMENT = 'Agent for opportunity delivery analytics - analyzes deal profitability, project delivery, and cross-system metrics'
-  FROM SPECIFICATION $$
-  {
-    "models": {"orchestration": "auto"},
-    "instructions": {
-      "orchestration": "You analyze opportunity delivery data spanning Salesforce CRM and Mavenlink project management. Use the semantic view to answer questions about sales pipeline, deal profitability, project delivery, and cross-system analytics.",
-      "response": "You are a Revenue Operations analyst specializing in deal-to-delivery analytics. Lead with bullet points summarizing key insights. Use bold text for important metrics. Show data tables after insights."
-    },
-    "tools": [{
-      "tool_spec": {
-        "type": "cortex_analyst_text_to_sql",
-        "name": "opportunity_delivery",
-        "description": "Query opportunity and delivery data - sales pipeline, customers, products, projects, and profitability metrics."
-      }
-    }],
-    "tool_resources": {
-      "opportunity_delivery": {
-        "semantic_view": "ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS",
-        "execution_environment": {"type": "warehouse", "warehouse": "WH_XS"}
-      }
-    }
-  }
-  $$;
-```
+Open `create_agent.sql` in a Snowsight worksheet and run it.
 
 Verify:
 ```sql

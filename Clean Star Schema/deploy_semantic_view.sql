@@ -1,0 +1,1284 @@
+/*
+ * Deploy Semantic View - OPPORTUNITY_DELIVERY_ANALYTICS
+ * 
+ * Run this script in Snowsight after the dbt project has been deployed and run.
+ * This creates the semantic view with all dimensions, measures, relationships,
+ * and verified queries.
+ *
+ * Target: ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS
+ */
+
+USE ROLE ACCOUNTADMIN;
+USE DATABASE ANALYTICS2;
+USE SCHEMA MART;
+USE WAREHOUSE WH_XS;
+
+CALL SYSTEM$CREATE_SEMANTIC_VIEW_FROM_YAML('ANALYTICS2.MART', 
+$$
+name: OPPORTUNITY_DELIVERY_ANALYTICS
+description: >
+  Clean star schema semantic view for analyzing the complete deal-to-delivery lifecycle.
+  Combines Salesforce opportunity data with Mavenlink project delivery metrics at the
+  opportunity level, providing insights into sales performance, project profitability,
+  customer health, and cross-system analytics.
+
+tables:
+  - name: FACT_OPPORTUNITY_DELIVERY
+    description: >
+      Core fact table at the opportunity grain (1:1 with workspace). Contains deal
+      information, project delivery metrics, line item aggregations, and time entry
+      summaries. Use this table for deal profitability, sales performance, and
+      delivery health analysis.
+    synonyms:
+      - deals
+      - opportunities
+      - sales
+      - deal_delivery
+      - profitability
+    base_table:
+      database: ANALYTICS2
+      schema: MART
+      table: FACT_OPPORTUNITY_DELIVERY
+    primary_key:
+      columns:
+        - OPPORTUNITY_ID
+    dimensions:
+      - name: OPPORTUNITY_ID
+        description: Unique Salesforce opportunity identifier. Primary key for the fact table linking deals to delivery.
+        synonyms:
+          - deal_id
+          - opp_id
+        expr: OPPORTUNITY_ID
+        data_type: VARCHAR
+        unique: true
+      - name: WORKSPACE_ID
+        description: Mavenlink workspace/project ID (null if no linked project)
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: NUMBER
+      - name: ACCOUNT_ID
+        description: Salesforce account/customer ID
+        synonyms:
+          - customer_id
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+      - name: SALES_REP_ID
+        description: ID of the sales rep who owns this opportunity
+        synonyms:
+          - owner_id
+        expr: SALES_REP_ID
+        data_type: VARCHAR
+      - name: PRIMARY_PRODUCT_ID
+        description: ID of the highest-value product on the opportunity
+        expr: PRIMARY_PRODUCT_ID
+        data_type: VARCHAR
+      - name: OPPORTUNITY_NAME
+        description: Name of the opportunity/deal
+        synonyms:
+          - deal_name
+        expr: OPPORTUNITY_NAME
+        data_type: VARCHAR
+      - name: STAGE_NAME
+        description: Current sales stage in the pipeline
+        synonyms:
+          - sales_stage
+          - pipeline_stage
+        expr: STAGE_NAME
+        data_type: VARCHAR
+        sample_values:
+          - Closed Won
+          - Closed Lost
+          - Discovery
+          - Negotiation
+          - Deal Imminent
+          - Scope / Use Case
+      - name: OPPORTUNITY_TYPE
+        description: Type of deal (New Business, Renewal, Amendment, Cross-Sell)
+        synonyms:
+          - deal_type
+        expr: OPPORTUNITY_TYPE
+        data_type: VARCHAR
+        sample_values:
+          - New Business
+          - Renewal
+          - Amendment
+          - Cross-Sell
+      - name: LEAD_SOURCE
+        description: Source of the lead
+        synonyms:
+          - source
+          - channel
+        expr: LEAD_SOURCE
+        data_type: VARCHAR
+      - name: FORECAST_CATEGORY
+        description: Forecast category for pipeline reporting
+        expr: FORECAST_CATEGORY
+        data_type: VARCHAR
+      - name: IS_CLOSED
+        description: Whether the opportunity is closed
+        expr: IS_CLOSED
+        data_type: BOOLEAN
+      - name: IS_WON
+        description: Whether the opportunity was won
+        expr: IS_WON
+        data_type: BOOLEAN
+      - name: CURRENCY_ISO_CODE
+        description: Currency code for monetary values
+        expr: CURRENCY_ISO_CODE
+        data_type: VARCHAR
+      - name: FISCAL_QUARTER
+        description: Fiscal quarter of close date
+        synonyms:
+          - quarter
+        expr: FISCAL_QUARTER
+        data_type: NUMBER
+      - name: FISCAL_YEAR
+        description: Fiscal year of close date
+        expr: FISCAL_YEAR
+        data_type: NUMBER
+      - name: ACCOUNT_NAME
+        description: Name of the customer/account
+        synonyms:
+          - customer_name
+          - company_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: INDUSTRY
+        description: Industry of the customer
+        synonyms:
+          - vertical
+          - sector
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: SALES_REP_NAME
+        description: Name of the sales rep
+        synonyms:
+          - rep_name
+          - owner_name
+        expr: SALES_REP_NAME
+        data_type: VARCHAR
+      - name: PRIMARY_PRODUCT_NAME
+        description: Name of the primary product sold
+        expr: PRIMARY_PRODUCT_NAME
+        data_type: VARCHAR
+      - name: PRIMARY_PRODUCT_FAMILY
+        description: Product family of the primary product
+        expr: PRIMARY_PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: ALL_PRODUCT_FAMILIES
+        description: Comma-separated list of all product families on the deal
+        expr: ALL_PRODUCT_FAMILIES
+        data_type: VARCHAR
+      - name: PROJECT_NAME
+        description: Name of the linked Mavenlink project
+        synonyms:
+          - workspace_name
+          - engagement_name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: PROJECT_STATUS
+        description: Current status of the project delivery
+        synonyms:
+          - delivery_status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - active
+          - completed
+          - cancelled
+          - archived
+          - on hold
+      - name: HAS_LINKED_PROJECT
+        description: Whether this deal has a linked Mavenlink project
+        synonyms:
+          - has_project
+        expr: HAS_LINKED_PROJECT
+        data_type: BOOLEAN
+      - name: PROJECT_IS_OVER_BUDGET
+        description: Whether the project is over budget
+        expr: PROJECT_IS_OVER_BUDGET
+        data_type: BOOLEAN
+      - name: PROJECT_LEAD_NAME
+        description: Name of the project lead (top contributor by hours)
+        synonyms:
+          - lead_consultant
+          - top_contributor
+        expr: PROJECT_LEAD_NAME
+        data_type: VARCHAR
+      - name: PROJECT_LEAD_TITLE
+        description: Job title of the project lead
+        expr: PROJECT_LEAD_TITLE
+        data_type: VARCHAR
+      - name: DEAL_DELIVERY_STATUS
+        description: Combined deal and delivery status showing overall lifecycle stage
+        synonyms:
+          - status
+          - overall_status
+        expr: DEAL_DELIVERY_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - Open
+          - Delivered
+          - In Delivery
+          - Won - No Project
+          - Lost
+      - name: PROJECT_HEALTH_STATUS
+        description: Health status of the project indicating risk level
+        synonyms:
+          - health_status
+          - risk_status
+        expr: PROJECT_HEALTH_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - On Track
+          - At Risk - Over Budget
+          - At Risk - Overdue
+          - At Risk - Low Margin
+          - completed
+          - No Project
+    time_dimensions:
+      - name: DEAL_CLOSE_DATE
+        description: Close date of the opportunity
+        synonyms:
+          - close_date
+          - closed_date
+        expr: DEAL_CLOSE_DATE
+        data_type: DATE
+      - name: DEAL_CREATED_DATE
+        description: Date the opportunity was created
+        synonyms:
+          - created_date
+        expr: DEAL_CREATED_DATE
+        data_type: TIMESTAMP_NTZ
+      - name: DEAL_LAST_ACTIVITY_DATE
+        description: Date of last activity on the opportunity
+        expr: DEAL_LAST_ACTIVITY_DATE
+        data_type: DATE
+      - name: PROJECT_START_DATE
+        description: Start date of the project
+        synonyms:
+          - kickoff_date
+        expr: PROJECT_START_DATE
+        data_type: DATE
+      - name: PROJECT_DUE_DATE
+        description: Due date of the project
+        synonyms:
+          - end_date
+          - target_date
+        expr: PROJECT_DUE_DATE
+        data_type: DATE
+      - name: PROJECT_FIRST_TIME_ENTRY
+        description: Date of first time entry on the project
+        expr: PROJECT_FIRST_TIME_ENTRY
+        data_type: DATE
+      - name: PROJECT_LAST_TIME_ENTRY
+        description: Date of most recent time entry
+        expr: PROJECT_LAST_TIME_ENTRY
+        data_type: DATE
+    facts:
+      - name: DEAL_AMOUNT
+        description: Total opportunity amount
+        synonyms:
+          - amount
+          - deal_value
+          - revenue
+        expr: DEAL_AMOUNT
+        data_type: NUMBER
+      - name: PROBABILITY
+        description: Win probability percentage
+        expr: PROBABILITY
+        data_type: NUMBER
+      - name: PUSH_COUNT
+        description: Number of times close date was pushed
+        expr: PUSH_COUNT
+        data_type: NUMBER
+      - name: LINE_ITEM_COUNT
+        description: Number of line items on the opportunity
+        expr: LINE_ITEM_COUNT
+        data_type: NUMBER
+      - name: UNIQUE_PRODUCTS
+        description: Number of unique products sold
+        expr: UNIQUE_PRODUCTS
+        data_type: NUMBER
+      - name: TOTAL_LINE_ITEM_VALUE
+        description: Sum of all line item values
+        expr: TOTAL_LINE_ITEM_VALUE
+        data_type: NUMBER
+      - name: AVG_UNIT_PRICE
+        description: Average unit price across line items
+        expr: AVG_UNIT_PRICE
+        data_type: NUMBER
+      - name: AVG_DISCOUNT_PCT
+        description: Average discount percentage
+        synonyms:
+          - discount
+        expr: AVG_DISCOUNT_PCT
+        data_type: NUMBER
+      - name: PRIMARY_PRODUCT_VALUE
+        description: Value of the primary product
+        expr: PRIMARY_PRODUCT_VALUE
+        data_type: NUMBER
+      - name: PROJECT_PCT_COMPLETE
+        description: Project completion percentage
+        synonyms:
+          - completion_pct
+          - progress
+        expr: PROJECT_PCT_COMPLETE
+        data_type: NUMBER
+      - name: PROJECT_BUDGET
+        description: Total project budget
+        synonyms:
+          - budget
+        expr: PROJECT_BUDGET
+        data_type: NUMBER
+      - name: PROJECT_SPEND
+        description: Amount spent on the project
+        synonyms:
+          - spend
+          - budget_used
+        expr: PROJECT_SPEND
+        data_type: NUMBER
+      - name: PROJECT_TOTAL_HOURS
+        description: Total hours logged on the project
+        synonyms:
+          - total_hours
+        expr: PROJECT_TOTAL_HOURS
+        data_type: NUMBER
+      - name: PROJECT_BILLABLE_HOURS
+        description: Billable hours logged
+        synonyms:
+          - billable_hours
+        expr: PROJECT_BILLABLE_HOURS
+        data_type: NUMBER
+      - name: PROJECT_NON_BILLABLE_HOURS
+        description: Non-billable hours logged
+        expr: PROJECT_NON_BILLABLE_HOURS
+        data_type: NUMBER
+      - name: PROJECT_REVENUE
+        description: Revenue from billable time
+        synonyms:
+          - delivery_revenue
+        expr: PROJECT_REVENUE
+        data_type: NUMBER
+      - name: PROJECT_COST
+        description: Cost of delivery
+        synonyms:
+          - delivery_cost
+          - labor_cost
+        expr: PROJECT_COST
+        data_type: NUMBER
+      - name: PROJECT_GROSS_MARGIN
+        description: Project revenue minus cost
+        synonyms:
+          - gross_margin
+        expr: PROJECT_GROSS_MARGIN
+        data_type: NUMBER
+      - name: PROJECT_BILLABILITY_PCT
+        description: Percentage of hours that are billable
+        synonyms:
+          - billability
+        expr: PROJECT_BILLABILITY_PCT
+        data_type: NUMBER
+      - name: PROJECT_AVG_BILL_RATE
+        description: Average billing rate per hour
+        expr: PROJECT_AVG_BILL_RATE
+        data_type: NUMBER
+      - name: PROJECT_AVG_COST_RATE
+        description: Average cost rate per hour
+        expr: PROJECT_AVG_COST_RATE
+        data_type: NUMBER
+      - name: PROJECT_TEAM_SIZE
+        description: Number of people who worked on the project
+        synonyms:
+          - team_size
+          - contributors
+        expr: PROJECT_TEAM_SIZE
+        data_type: NUMBER
+      - name: PROJECT_LEAD_HOURS
+        description: Hours logged by the project lead
+        expr: PROJECT_LEAD_HOURS
+        data_type: NUMBER
+      - name: PROJECT_TOTAL_TASKS
+        description: Total number of tasks/stories
+        synonyms:
+          - task_count
+        expr: PROJECT_TOTAL_TASKS
+        data_type: NUMBER
+      - name: PROJECT_COMPLETED_TASKS
+        description: Number of completed tasks
+        expr: PROJECT_COMPLETED_TASKS
+        data_type: NUMBER
+      - name: PROJECT_TASK_COMPLETION_PCT
+        description: Task completion percentage
+        expr: PROJECT_TASK_COMPLETION_PCT
+        data_type: NUMBER
+      - name: REVENUE_REALIZATION_PCT
+        description: Project revenue as percentage of deal amount
+        synonyms:
+          - realization_rate
+        expr: REVENUE_REALIZATION_PCT
+        data_type: NUMBER
+      - name: MARGIN_PCT
+        description: Project margin percentage
+        synonyms:
+          - profitability
+          - project_margin
+        expr: MARGIN_PCT
+        data_type: NUMBER
+      - name: DAYS_CLOSE_TO_KICKOFF
+        description: Days from deal close to project kickoff
+        synonyms:
+          - time_to_kickoff
+        expr: DAYS_CLOSE_TO_KICKOFF
+        data_type: NUMBER
+      - name: PLANNED_PROJECT_DURATION_DAYS
+        description: Planned project duration in days
+        synonyms:
+          - project_duration
+        expr: PLANNED_PROJECT_DURATION_DAYS
+        data_type: NUMBER
+      - name: PROJECT_ACTIVE_SPAN_DAYS
+        description: Days between first and last time entry
+        expr: PROJECT_ACTIVE_SPAN_DAYS
+        data_type: NUMBER
+    metrics:
+      - name: TOTAL_DEAL_VALUE
+        description: Sum of deal amounts
+        synonyms:
+          - total_revenue
+          - bookings
+        expr: SUM(DEAL_AMOUNT)
+      - name: TOTAL_PROJECT_REVENUE
+        description: Sum of project revenue
+        expr: SUM(PROJECT_REVENUE)
+      - name: TOTAL_PROJECT_COST
+        description: Sum of project costs
+        expr: SUM(PROJECT_COST)
+      - name: TOTAL_GROSS_MARGIN
+        description: Total revenue minus total cost
+        expr: SUM(PROJECT_REVENUE) - SUM(PROJECT_COST)
+      - name: AVG_MARGIN_PCT
+        description: Average project margin percentage
+        expr: AVG(MARGIN_PCT)
+      - name: DEAL_COUNT
+        description: Number of deals
+        synonyms:
+          - opportunity_count
+        expr: COUNT(*)
+      - name: WON_DEAL_COUNT
+        description: Number of won deals
+        expr: SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END)
+      - name: WIN_RATE_PCT
+        description: Win rate percentage
+        expr: AVG(CASE WHEN IS_CLOSED THEN CASE WHEN IS_WON THEN 100.0 ELSE 0.0 END END)
+      - name: AVG_DEAL_SIZE
+        description: Average deal amount
+        expr: AVG(DEAL_AMOUNT)
+      - name: TOTAL_HOURS_DELIVERED
+        description: Total hours across all projects
+        expr: SUM(PROJECT_TOTAL_HOURS)
+      - name: AVG_TEAM_SIZE
+        description: Average project team size
+        expr: AVG(PROJECT_TEAM_SIZE)
+      - name: AVG_DAYS_TO_KICKOFF
+        description: Average days from close to kickoff
+        expr: AVG(DAYS_CLOSE_TO_KICKOFF)
+    filters:
+      - name: won_deals
+        description: Closed-won opportunities only
+        expr: "IS_WON = TRUE"
+      - name: open_deals
+        description: Open/active opportunities in the pipeline
+        expr: "IS_CLOSED = FALSE"
+      - name: lost_deals
+        description: Closed-lost opportunities
+        expr: "IS_CLOSED = TRUE AND IS_WON = FALSE"
+      - name: has_project
+        description: Deals with linked Mavenlink projects
+        expr: "HAS_LINKED_PROJECT = TRUE"
+      - name: at_risk_projects
+        description: Projects with at-risk health status
+        expr: "PROJECT_HEALTH_STATUS LIKE 'At Risk%'"
+      - name: profitable_projects
+        description: Projects with positive margin
+        expr: "MARGIN_PCT > 0"
+      - name: new_business
+        description: New business opportunities only
+        expr: "OPPORTUNITY_TYPE = 'New Business'"
+      - name: renewals
+        description: Renewal opportunities only
+        expr: "OPPORTUNITY_TYPE = 'Renewal'"
+
+  - name: DIM_CUSTOMER
+    description: >
+      Customer dimension with account profile, location, and opportunity statistics.
+      Join to fact table on account_id.
+    synonyms:
+      - customers
+      - accounts
+      - clients
+      - companies
+    base_table:
+      database: ANALYTICS2
+      schema: MART
+      table: DIM_CUSTOMER
+    primary_key:
+      columns:
+        - ACCOUNT_ID
+    dimensions:
+      - name: ACCOUNT_ID
+        description: Salesforce account ID. Primary key for customer dimension.
+        expr: ACCOUNT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: ACCOUNT_NAME
+        description: Company name
+        synonyms:
+          - customer_name
+          - company_name
+        expr: ACCOUNT_NAME
+        data_type: VARCHAR
+      - name: INDUSTRY
+        description: Industry classification
+        synonyms:
+          - vertical
+          - sector
+        expr: INDUSTRY
+        data_type: VARCHAR
+      - name: BILLING_CITY
+        description: City
+        synonyms:
+          - city
+        expr: BILLING_CITY
+        data_type: VARCHAR
+      - name: BILLING_STATE
+        description: State/Province
+        synonyms:
+          - state
+        expr: BILLING_STATE
+        data_type: VARCHAR
+      - name: BILLING_COUNTRY
+        description: Country
+        synonyms:
+          - country
+        expr: BILLING_COUNTRY
+        data_type: VARCHAR
+      - name: PHONE
+        description: Phone number
+        expr: PHONE
+        data_type: VARCHAR
+      - name: WEBSITE
+        description: Company website
+        expr: WEBSITE
+        data_type: VARCHAR
+    time_dimensions:
+      - name: LAST_ACTIVITY_DATE
+        description: Most recent activity
+        expr: LAST_ACTIVITY_DATE
+        data_type: DATE
+      - name: CREATED_DATE
+        description: Account creation date
+        expr: CREATED_DATE
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: ANNUAL_REVENUE
+        description: Annual revenue
+        expr: ANNUAL_REVENUE
+        data_type: NUMBER
+      - name: NUMBER_OF_EMPLOYEES
+        description: Employee count
+        synonyms:
+          - headcount
+        expr: NUMBER_OF_EMPLOYEES
+        data_type: NUMBER
+      - name: TOTAL_OPPORTUNITIES
+        description: Total opportunities
+        expr: TOTAL_OPPORTUNITIES
+        data_type: NUMBER
+      - name: WON_OPPORTUNITIES
+        description: Won opportunities
+        expr: WON_OPPORTUNITIES
+        data_type: NUMBER
+      - name: LOST_OPPORTUNITIES
+        description: Lost opportunities
+        expr: LOST_OPPORTUNITIES
+        data_type: NUMBER
+      - name: OPEN_OPPORTUNITIES
+        description: Open opportunities
+        expr: OPEN_OPPORTUNITIES
+        data_type: NUMBER
+      - name: TOTAL_WON_REVENUE
+        description: Total won revenue
+        expr: TOTAL_WON_REVENUE
+        data_type: NUMBER
+      - name: OPEN_PIPELINE_VALUE
+        description: Open pipeline value
+        expr: OPEN_PIPELINE_VALUE
+        data_type: NUMBER
+      - name: AVG_WON_DEAL_SIZE
+        description: Average won deal size
+        expr: AVG_WON_DEAL_SIZE
+        data_type: NUMBER
+      - name: WIN_RATE_PCT
+        description: Win rate percentage
+        expr: WIN_RATE_PCT
+        data_type: NUMBER
+
+  - name: DIM_USER
+    description: >
+      User dimension combining Salesforce and Mavenlink users.
+      Join to fact table on sales_rep_id or project_lead lookup.
+    synonyms:
+      - users
+      - employees
+      - reps
+      - consultants
+    base_table:
+      database: ANALYTICS2
+      schema: MART
+      table: DIM_USER
+    primary_key:
+      columns:
+        - SF_USER_ID
+    dimensions:
+      - name: SF_USER_ID
+        description: Salesforce user ID. Primary key for user dimension.
+        expr: SF_USER_ID
+        data_type: VARCHAR
+        unique: true
+      - name: ML_USER_ID
+        description: Mavenlink user ID
+        expr: ML_USER_ID
+        data_type: VARCHAR
+      - name: FULL_NAME
+        description: Full name
+        synonyms:
+          - name
+          - employee_name
+        expr: FULL_NAME
+        data_type: VARCHAR
+      - name: EMAIL
+        description: Email address
+        expr: EMAIL
+        data_type: VARCHAR
+      - name: SF_TITLE
+        description: Salesforce job title
+        synonyms:
+          - title
+        expr: SF_TITLE
+        data_type: VARCHAR
+      - name: ML_TITLE
+        description: Mavenlink job title
+        expr: ML_TITLE
+        data_type: VARCHAR
+      - name: DEPARTMENT
+        description: Department
+        synonyms:
+          - team
+        expr: DEPARTMENT
+        data_type: VARCHAR
+      - name: IS_ACTIVE_SALESFORCE
+        description: Active in Salesforce
+        expr: IS_ACTIVE_SALESFORCE
+        data_type: BOOLEAN
+      - name: MATCH_STATUS
+        description: System match status between Salesforce and Mavenlink
+        expr: MATCH_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - Matched
+          - Salesforce Only
+          - Mavenlink Only
+    facts:
+      - name: ML_ACTIVE_PROJECTS
+        description: Active Mavenlink projects
+        expr: ML_ACTIVE_PROJECTS
+        data_type: NUMBER
+      - name: ML_TOTAL_HOURS
+        description: Total hours logged
+        expr: ML_TOTAL_HOURS
+        data_type: NUMBER
+      - name: ML_BILLABLE_HOURS
+        description: Billable hours
+        expr: ML_BILLABLE_HOURS
+        data_type: NUMBER
+      - name: ML_UTILIZATION_PCT
+        description: Utilization percentage
+        expr: ML_UTILIZATION_PCT
+        data_type: NUMBER
+
+  - name: DIM_PRODUCT
+    description: >
+      Product dimension from Salesforce product catalog.
+      Join to fact table on primary_product_id.
+    synonyms:
+      - products
+      - offerings
+      - skus
+    base_table:
+      database: ANALYTICS2
+      schema: MART
+      table: DIM_PRODUCT
+    primary_key:
+      columns:
+        - PRODUCT_ID
+    dimensions:
+      - name: PRODUCT_ID
+        description: Salesforce product ID. Primary key for product dimension.
+        expr: PRODUCT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: PRODUCT_NAME
+        description: Product name
+        synonyms:
+          - name
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+      - name: PRODUCT_CODE
+        description: Product code/SKU
+        synonyms:
+          - sku
+        expr: PRODUCT_CODE
+        data_type: VARCHAR
+      - name: PRODUCT_FAMILY
+        description: Product family/category
+        synonyms:
+          - family
+          - category
+        expr: PRODUCT_FAMILY
+        data_type: VARCHAR
+      - name: IS_ACTIVE
+        description: Is product active
+        expr: IS_ACTIVE
+        data_type: BOOLEAN
+    facts:
+      - name: TIMES_SOLD
+        description: Times sold
+        expr: TIMES_SOLD
+        data_type: NUMBER
+      - name: UNIQUE_OPPORTUNITIES
+        description: Unique opportunities with this product
+        expr: UNIQUE_OPPORTUNITIES
+        data_type: NUMBER
+      - name: TOTAL_REVENUE
+        description: Total revenue from this product
+        expr: TOTAL_REVENUE
+        data_type: NUMBER
+      - name: TOTAL_QUANTITY_SOLD
+        description: Total quantity sold
+        expr: TOTAL_QUANTITY_SOLD
+        data_type: NUMBER
+      - name: AVG_SELLING_PRICE
+        description: Average selling price
+        expr: AVG_SELLING_PRICE
+        data_type: NUMBER
+
+  - name: DIM_PROJECT
+    description: >
+      Project dimension from Mavenlink with delivery metrics.
+      Join to fact table on workspace_id.
+    synonyms:
+      - projects
+      - workspaces
+      - engagements
+    base_table:
+      database: ANALYTICS2
+      schema: MART
+      table: DIM_PROJECT
+    primary_key:
+      columns:
+        - WORKSPACE_ID
+    dimensions:
+      - name: WORKSPACE_ID
+        description: Mavenlink workspace ID. Primary key for project dimension.
+        synonyms:
+          - project_id
+        expr: WORKSPACE_ID
+        data_type: NUMBER
+        unique: true
+      - name: PROJECT_NAME
+        description: Project name
+        synonyms:
+          - name
+          - workspace_name
+        expr: PROJECT_NAME
+        data_type: VARCHAR
+      - name: PROJECT_STATUS
+        description: Current status of the project
+        synonyms:
+          - status
+        expr: PROJECT_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - active
+          - completed
+          - cancelled
+          - archived
+      - name: HEALTH_STATUS
+        description: Health status of the project
+        expr: HEALTH_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - On Track
+          - At Risk - Over Budget
+          - At Risk - Overdue
+          - In Progress
+          - completed
+      - name: LINKED_OPPORTUNITY_ID
+        description: Linked Salesforce opportunity
+        expr: LINKED_OPPORTUNITY_ID
+        data_type: VARCHAR
+      - name: IS_OVERDUE
+        description: Is project overdue
+        expr: IS_OVERDUE
+        data_type: BOOLEAN
+      - name: IS_OVER_BUDGET
+        description: Is project over budget
+        expr: IS_OVER_BUDGET
+        data_type: BOOLEAN
+      - name: TOP_CONTRIBUTOR_NAME
+        description: Top contributor by hours
+        synonyms:
+          - project_lead
+        expr: TOP_CONTRIBUTOR_NAME
+        data_type: VARCHAR
+    time_dimensions:
+      - name: START_DATE
+        description: Project start date
+        expr: START_DATE
+        data_type: DATE
+      - name: DUE_DATE
+        description: Project due date
+        expr: DUE_DATE
+        data_type: DATE
+      - name: FIRST_TIME_ENTRY_DATE
+        description: First time entry
+        expr: FIRST_TIME_ENTRY_DATE
+        data_type: DATE
+      - name: LAST_TIME_ENTRY_DATE
+        description: Last time entry
+        expr: LAST_TIME_ENTRY_DATE
+        data_type: DATE
+    facts:
+      - name: PERCENTAGE_COMPLETE
+        description: Completion percentage
+        synonyms:
+          - progress
+        expr: PERCENTAGE_COMPLETE
+        data_type: NUMBER
+      - name: BUDGET_DOLLARS
+        description: Budget
+        expr: BUDGET_DOLLARS
+        data_type: NUMBER
+      - name: BUDGET_USED_DOLLARS
+        description: Budget used
+        expr: BUDGET_USED_DOLLARS
+        data_type: NUMBER
+      - name: BUDGET_REMAINING_DOLLARS
+        description: Budget remaining
+        expr: BUDGET_REMAINING_DOLLARS
+        data_type: NUMBER
+      - name: TOTAL_HOURS
+        description: Total hours
+        expr: TOTAL_HOURS
+        data_type: NUMBER
+      - name: BILLABLE_HOURS
+        description: Billable hours
+        expr: BILLABLE_HOURS
+        data_type: NUMBER
+      - name: TOTAL_BILLABLE_REVENUE
+        description: Billable revenue
+        expr: TOTAL_BILLABLE_REVENUE
+        data_type: NUMBER
+      - name: TOTAL_COST
+        description: Total cost
+        expr: TOTAL_COST
+        data_type: NUMBER
+      - name: GROSS_MARGIN
+        description: Gross margin
+        expr: GROSS_MARGIN
+        data_type: NUMBER
+      - name: UNIQUE_CONTRIBUTORS
+        description: Team size
+        expr: UNIQUE_CONTRIBUTORS
+        data_type: NUMBER
+      - name: TOTAL_STORIES
+        description: Total tasks
+        expr: TOTAL_STORIES
+        data_type: NUMBER
+      - name: COMPLETED_STORIES
+        description: Completed tasks
+        expr: COMPLETED_STORIES
+        data_type: NUMBER
+
+relationships:
+  - name: FACT_TO_CUSTOMER
+    left_table: FACT_OPPORTUNITY_DELIVERY
+    right_table: DIM_CUSTOMER
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+    relationship_type: many_to_one
+    join_type: left_outer
+
+  - name: FACT_TO_SALES_REP
+    left_table: FACT_OPPORTUNITY_DELIVERY
+    right_table: DIM_USER
+    relationship_columns:
+      - left_column: SALES_REP_ID
+        right_column: SF_USER_ID
+    relationship_type: many_to_one
+    join_type: left_outer
+
+  - name: FACT_TO_PRIMARY_PRODUCT
+    left_table: FACT_OPPORTUNITY_DELIVERY
+    right_table: DIM_PRODUCT
+    relationship_columns:
+      - left_column: PRIMARY_PRODUCT_ID
+        right_column: PRODUCT_ID
+    relationship_type: many_to_one
+    join_type: left_outer
+
+  - name: FACT_TO_PROJECT
+    left_table: FACT_OPPORTUNITY_DELIVERY
+    right_table: DIM_PROJECT
+    relationship_columns:
+      - left_column: WORKSPACE_ID
+        right_column: WORKSPACE_ID
+    relationship_type: many_to_one
+    join_type: left_outer
+
+verified_queries:
+  # ========================================
+  # SALESFORCE ONLY (2 queries)
+  # Questions that only use CRM/Sales data
+  # ========================================
+
+  - name: salesforce_pipeline_performance_by_rep
+    question: Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        SALES_REP_NAME as sales_rep,
+        COUNT(*) as total_opportunities,
+        SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END) as won_deals,
+        SUM(CASE WHEN IS_CLOSED AND NOT IS_WON THEN 1 ELSE 0 END) as lost_deals,
+        SUM(CASE WHEN NOT IS_CLOSED THEN 1 ELSE 0 END) as open_deals,
+        ROUND(100.0 * SUM(CASE WHEN IS_WON THEN 1 ELSE 0 END) / 
+              NULLIF(SUM(CASE WHEN IS_CLOSED THEN 1 ELSE 0 END), 0), 1) as win_rate_pct,
+        ROUND(SUM(CASE WHEN IS_WON THEN DEAL_AMOUNT ELSE 0 END), 0) as closed_won_revenue,
+        ROUND(SUM(CASE WHEN NOT IS_CLOSED THEN DEAL_AMOUNT ELSE 0 END), 0) as open_pipeline_value,
+        ROUND(AVG(CASE WHEN IS_WON THEN DEAL_AMOUNT END), 0) as avg_won_deal_size,
+        ROUND(AVG(PUSH_COUNT), 1) as avg_push_count
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY
+      WHERE SALES_REP_NAME IS NOT NULL
+      GROUP BY SALES_REP_NAME
+      HAVING COUNT(*) >= 5
+      ORDER BY closed_won_revenue DESC
+      LIMIT 15
+
+  - name: salesforce_product_performance_and_composition
+    question: Which products drive the most revenue and what are the typical deal structures, discounts, and line item patterns?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        p.PRODUCT_FAMILY,
+        p.PRODUCT_NAME,
+        COUNT(DISTINCT f.OPPORTUNITY_ID) as opportunities,
+        SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) as won_deals,
+        ROUND(100.0 * SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) / 
+              NULLIF(SUM(CASE WHEN f.IS_CLOSED THEN 1 ELSE 0 END), 0), 1) as win_rate_pct,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT ELSE 0 END), 0) as total_won_revenue,
+        ROUND(AVG(f.DEAL_AMOUNT), 0) as avg_deal_size,
+        ROUND(AVG(f.AVG_DISCOUNT_PCT), 1) as avg_discount_pct,
+        ROUND(AVG(f.LINE_ITEM_COUNT), 1) as avg_line_items,
+        ROUND(AVG(f.UNIQUE_PRODUCTS), 1) as avg_products_per_deal
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_PRODUCT p ON f.PRIMARY_PRODUCT_ID = p.PRODUCT_ID
+      WHERE f.IS_CLOSED = TRUE
+      GROUP BY p.PRODUCT_FAMILY, p.PRODUCT_NAME
+      HAVING COUNT(*) >= 10
+      ORDER BY total_won_revenue DESC
+      LIMIT 15
+
+  # ========================================
+  # MAVENLINK ONLY (2 queries)
+  # Questions that only use PM/Delivery data
+  # ========================================
+
+  - name: mavenlink_delivery_performance_by_status
+    question: Show project delivery performance and resource utilization metrics broken down by project status.
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        proj.PROJECT_STATUS as status,
+        COUNT(*) as project_count,
+        ROUND(AVG(proj.PERCENTAGE_COMPLETE), 1) as avg_completion_pct,
+        ROUND(SUM(proj.TOTAL_HOURS), 0) as total_hours_logged,
+        ROUND(SUM(proj.BILLABLE_HOURS), 0) as billable_hours,
+        ROUND(100.0 * SUM(proj.BILLABLE_HOURS) / NULLIF(SUM(proj.TOTAL_HOURS), 0), 1) as billability_pct,
+        ROUND(SUM(proj.TOTAL_BILLABLE_REVENUE), 0) as total_revenue,
+        ROUND(SUM(proj.TOTAL_COST), 0) as total_cost,
+        ROUND(SUM(proj.GROSS_MARGIN), 0) as total_margin,
+        ROUND(AVG(proj.UNIQUE_CONTRIBUTORS), 1) as avg_team_size,
+        ROUND(AVG(proj.TOTAL_STORIES), 1) as avg_tasks_per_project,
+        ROUND(100.0 * AVG(proj.COMPLETED_STORIES) / NULLIF(AVG(proj.TOTAL_STORIES), 0), 1) as task_completion_pct
+      FROM ANALYTICS2.MART.DIM_PROJECT proj
+      WHERE proj.PROJECT_STATUS IS NOT NULL
+      GROUP BY proj.PROJECT_STATUS
+      ORDER BY project_count DESC
+
+  - name: mavenlink_project_lead_productivity
+    question: Who are the top project leads by revenue and what is their track record on budget and delivery?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        proj.TOP_CONTRIBUTOR_NAME as project_lead,
+        COUNT(*) as projects_led,
+        SUM(CASE WHEN proj.PROJECT_STATUS = 'completed' THEN 1 ELSE 0 END) as completed_projects,
+        ROUND(AVG(proj.PERCENTAGE_COMPLETE), 1) as avg_completion_pct,
+        ROUND(SUM(proj.TOTAL_HOURS), 0) as total_hours_managed,
+        ROUND(SUM(proj.BILLABLE_HOURS), 0) as billable_hours_managed,
+        ROUND(SUM(proj.TOTAL_BILLABLE_REVENUE), 0) as total_revenue_generated,
+        ROUND(SUM(proj.GROSS_MARGIN), 0) as total_margin_generated,
+        ROUND(AVG(proj.UNIQUE_CONTRIBUTORS), 1) as avg_team_size,
+        SUM(CASE WHEN proj.IS_OVER_BUDGET THEN 1 ELSE 0 END) as over_budget_projects,
+        ROUND(100.0 * SUM(CASE WHEN proj.IS_OVER_BUDGET THEN 1 ELSE 0 END) / COUNT(*), 1) as over_budget_pct
+      FROM ANALYTICS2.MART.DIM_PROJECT proj
+      WHERE proj.TOP_CONTRIBUTOR_NAME IS NOT NULL
+      GROUP BY proj.TOP_CONTRIBUTOR_NAME
+      HAVING COUNT(*) >= 10
+      ORDER BY total_revenue_generated DESC
+      LIMIT 15
+
+  # ========================================
+  # COMBINED SALESFORCE + MAVENLINK (8 queries)
+  # The "1+1=3" value: insights only possible by combining both systems
+  # ========================================
+
+  - name: combined_deal_to_delivery_revenue_leakage
+    question: Which deals show significant revenue leakage between what was sold and what was actually delivered?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        f.ACCOUNT_NAME as customer,
+        f.OPPORTUNITY_NAME as deal,
+        f.SALES_REP_NAME as sales_rep,
+        f.PROJECT_LEAD_NAME as project_lead,
+        ROUND(f.DEAL_AMOUNT, 0) as deal_amount,
+        ROUND(f.PROJECT_REVENUE, 0) as project_revenue,
+        ROUND(f.PROJECT_REVENUE - f.DEAL_AMOUNT, 0) as revenue_variance,
+        ROUND(f.REVENUE_REALIZATION_PCT, 1) as realization_pct,
+        f.PROJECT_STATUS,
+        f.PROJECT_HEALTH_STATUS
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      WHERE f.IS_WON = TRUE 
+        AND f.HAS_LINKED_PROJECT = TRUE
+        AND f.PROJECT_REVENUE > 0
+        AND ABS(f.PROJECT_REVENUE - f.DEAL_AMOUNT) > 10000
+      ORDER BY ABS(f.PROJECT_REVENUE - f.DEAL_AMOUNT) DESC
+      LIMIT 15
+
+  - name: combined_sales_to_delivery_handoff_efficiency
+    question: How does the speed of handoff from sales close to project kickoff impact delivery success and margin?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        CASE 
+          WHEN f.DAYS_CLOSE_TO_KICKOFF <= 7 THEN '1. Within 1 week'
+          WHEN f.DAYS_CLOSE_TO_KICKOFF <= 14 THEN '2. 1-2 weeks'
+          WHEN f.DAYS_CLOSE_TO_KICKOFF <= 30 THEN '3. 2-4 weeks'
+          WHEN f.DAYS_CLOSE_TO_KICKOFF <= 60 THEN '4. 1-2 months'
+          ELSE '5. Over 2 months'
+        END as handoff_speed,
+        COUNT(*) as deal_count,
+        ROUND(AVG(f.DEAL_AMOUNT), 0) as avg_deal_size,
+        ROUND(AVG(f.MARGIN_PCT), 1) as avg_margin_pct,
+        ROUND(SUM(CASE WHEN f.PROJECT_IS_OVER_BUDGET THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) as over_budget_pct,
+        ROUND(AVG(f.PROJECT_PCT_COMPLETE), 1) as avg_completion_pct,
+        SUM(CASE WHEN f.PROJECT_HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk_count,
+        ROUND(SUM(f.PROJECT_REVENUE), 0) as total_project_revenue,
+        ROUND(SUM(f.PROJECT_GROSS_MARGIN), 0) as total_margin
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      WHERE f.IS_WON = TRUE 
+        AND f.HAS_LINKED_PROJECT = TRUE
+        AND f.DAYS_CLOSE_TO_KICKOFF IS NOT NULL
+      GROUP BY 1
+      ORDER BY 1
+
+  - name: combined_win_rate_vs_delivery_success
+    question: Which sales reps have the best win rates AND delivery outcomes - who are the full-cycle performers?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        u.FULL_NAME as sales_rep,
+        u.DEPARTMENT,
+        u.SF_TITLE as role,
+        COUNT(*) as total_deals,
+        SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) as won_deals,
+        ROUND(100.0 * SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) / 
+              NULLIF(SUM(CASE WHEN f.IS_CLOSED THEN 1 ELSE 0 END), 0), 1) as win_rate_pct,
+        SUM(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN 1 ELSE 0 END) as deals_with_delivery,
+        ROUND(AVG(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN f.MARGIN_PCT END), 1) as avg_delivery_margin,
+        SUM(CASE WHEN f.IS_WON AND f.PROJECT_HEALTH_STATUS = 'On Track' THEN 1 ELSE 0 END) as on_track_projects,
+        SUM(CASE WHEN f.IS_WON AND f.PROJECT_HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk_projects,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT ELSE 0 END), 0) as total_won_revenue,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.PROJECT_GROSS_MARGIN ELSE 0 END), 0) as total_delivery_margin
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_USER u ON f.SALES_REP_ID = u.SF_USER_ID
+      GROUP BY u.FULL_NAME, u.DEPARTMENT, u.SF_TITLE
+      HAVING COUNT(*) >= 20
+      ORDER BY avg_delivery_margin DESC NULLS LAST
+      LIMIT 15
+
+  - name: combined_customer_value_with_delivery
+    question: Which customers have the highest lifetime value when you combine their sales bookings with delivery profitability?
+    verified_by: System
+    verified_at: 1740960000
+    use_as_onboarding_question: true
+    sql: |
+      SELECT 
+        c.ACCOUNT_NAME as customer,
+        c.INDUSTRY,
+        c.ANNUAL_REVENUE as customer_revenue,
+        c.NUMBER_OF_EMPLOYEES as headcount,
+        COUNT(DISTINCT f.OPPORTUNITY_ID) as total_deals,
+        SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) as won_deals,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT ELSE 0 END), 0) as total_bookings,
+        SUM(CASE WHEN f.HAS_LINKED_PROJECT THEN 1 ELSE 0 END) as projects_delivered,
+        ROUND(SUM(f.PROJECT_REVENUE), 0) as total_delivery_revenue,
+        ROUND(SUM(f.PROJECT_GROSS_MARGIN), 0) as total_delivery_margin,
+        ROUND(AVG(f.MARGIN_PCT), 1) as avg_margin_pct,
+        SUM(CASE WHEN f.PROJECT_HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk_projects
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_CUSTOMER c ON f.ACCOUNT_ID = c.ACCOUNT_ID
+      WHERE f.IS_WON = TRUE
+      GROUP BY c.ACCOUNT_NAME, c.INDUSTRY, c.ANNUAL_REVENUE, c.NUMBER_OF_EMPLOYEES
+      HAVING COUNT(DISTINCT f.OPPORTUNITY_ID) >= 3
+      ORDER BY total_bookings DESC
+      LIMIT 15
+
+  - name: combined_product_to_delivery_success
+    question: Which products lead to the most successful project deliveries based on margin and on-track status?
+    verified_by: System
+    verified_at: 1740960000
+    sql: |
+      SELECT 
+        p.PRODUCT_FAMILY,
+        p.PRODUCT_NAME,
+        COUNT(*) as deals_delivered,
+        ROUND(AVG(f.DEAL_AMOUNT), 0) as avg_deal_size,
+        ROUND(SUM(f.PROJECT_REVENUE), 0) as total_project_revenue,
+        ROUND(AVG(f.MARGIN_PCT), 1) as avg_margin_pct,
+        ROUND(AVG(f.PROJECT_PCT_COMPLETE), 1) as avg_completion_pct,
+        SUM(CASE WHEN f.PROJECT_IS_OVER_BUDGET THEN 1 ELSE 0 END) as over_budget_count,
+        ROUND(100.0 * SUM(CASE WHEN f.PROJECT_IS_OVER_BUDGET THEN 1 ELSE 0 END) / COUNT(*), 1) as over_budget_pct,
+        SUM(CASE WHEN f.PROJECT_HEALTH_STATUS = 'On Track' THEN 1 ELSE 0 END) as on_track_count,
+        SUM(CASE WHEN f.PROJECT_HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk_count
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_PRODUCT p ON f.PRIMARY_PRODUCT_ID = p.PRODUCT_ID
+      WHERE f.IS_WON = TRUE AND f.HAS_LINKED_PROJECT = TRUE
+      GROUP BY p.PRODUCT_FAMILY, p.PRODUCT_NAME
+      HAVING COUNT(*) >= 5
+      ORDER BY avg_margin_pct DESC
+      LIMIT 15
+
+  - name: combined_sales_delivery_partnership_analysis
+    question: Which sales rep and project lead partnerships produce the best results when working together?
+    verified_by: System
+    verified_at: 1740960000
+    sql: |
+      SELECT 
+        f.SALES_REP_NAME as sales_rep,
+        proj.TOP_CONTRIBUTOR_NAME as project_lead,
+        proj.PROJECT_STATUS as most_recent_status,
+        COUNT(*) as deals_together,
+        ROUND(SUM(f.DEAL_AMOUNT), 0) as total_deal_value,
+        ROUND(SUM(f.PROJECT_REVENUE), 0) as total_delivery_revenue,
+        ROUND(SUM(proj.GROSS_MARGIN), 0) as total_margin,
+        ROUND(AVG(f.MARGIN_PCT), 1) as avg_margin_pct,
+        ROUND(AVG(proj.PERCENTAGE_COMPLETE), 1) as avg_completion_pct,
+        ROUND(SUM(proj.BILLABLE_HOURS), 0) as total_billable_hours,
+        SUM(CASE WHEN proj.HEALTH_STATUS = 'On Track' THEN 1 ELSE 0 END) as on_track,
+        SUM(CASE WHEN proj.HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_PROJECT proj ON f.WORKSPACE_ID = proj.WORKSPACE_ID
+      WHERE f.IS_WON = TRUE 
+        AND f.HAS_LINKED_PROJECT = TRUE
+        AND proj.TOP_CONTRIBUTOR_NAME IS NOT NULL
+      GROUP BY f.SALES_REP_NAME, proj.TOP_CONTRIBUTOR_NAME, proj.PROJECT_STATUS
+      HAVING COUNT(*) >= 3
+      ORDER BY total_margin DESC
+      LIMIT 15
+
+  - name: combined_industry_sales_delivery_performance
+    question: Which industries show the best end-to-end performance from sales win rates through delivery margins?
+    verified_by: System
+    verified_at: 1740960000
+    sql: |
+      SELECT 
+        c.INDUSTRY,
+        COUNT(DISTINCT f.OPPORTUNITY_ID) as opportunities,
+        SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) as won_deals,
+        ROUND(100.0 * SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) / 
+              NULLIF(SUM(CASE WHEN f.IS_CLOSED THEN 1 ELSE 0 END), 0), 1) as win_rate_pct,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT ELSE 0 END), 0) as total_bookings,
+        SUM(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN 1 ELSE 0 END) as projects_delivered,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.PROJECT_REVENUE ELSE 0 END), 0) as delivery_revenue,
+        ROUND(AVG(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN f.MARGIN_PCT END), 1) as avg_delivery_margin,
+        SUM(CASE WHEN f.IS_WON AND f.PROJECT_HEALTH_STATUS = 'On Track' THEN 1 ELSE 0 END) as on_track_projects,
+        SUM(CASE WHEN f.IS_WON AND f.PROJECT_HEALTH_STATUS LIKE 'At Risk%' THEN 1 ELSE 0 END) as at_risk_projects
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      JOIN ANALYTICS2.MART.DIM_CUSTOMER c ON f.ACCOUNT_ID = c.ACCOUNT_ID
+      WHERE c.INDUSTRY IS NOT NULL
+      GROUP BY c.INDUSTRY
+      HAVING COUNT(*) >= 50
+      ORDER BY total_bookings DESC
+
+  - name: combined_deal_type_lifecycle_performance
+    question: How do different deal types (New Business vs Renewals vs Cross-sell) perform through the full sales-to-delivery lifecycle?
+    verified_by: System
+    verified_at: 1740960000
+    sql: |
+      SELECT 
+        f.OPPORTUNITY_TYPE as deal_type,
+        f.FORECAST_CATEGORY,
+        COUNT(*) as opportunities,
+        SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) as won_deals,
+        ROUND(100.0 * SUM(CASE WHEN f.IS_WON THEN 1 ELSE 0 END) / 
+              NULLIF(SUM(CASE WHEN f.IS_CLOSED THEN 1 ELSE 0 END), 0), 1) as win_rate_pct,
+        ROUND(AVG(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT END), 0) as avg_won_deal_size,
+        ROUND(SUM(CASE WHEN f.IS_WON THEN f.DEAL_AMOUNT ELSE 0 END), 0) as total_bookings,
+        SUM(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN 1 ELSE 0 END) as with_delivery,
+        ROUND(AVG(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN f.REVENUE_REALIZATION_PCT END), 1) as avg_realization_pct,
+        ROUND(AVG(CASE WHEN f.IS_WON AND f.HAS_LINKED_PROJECT THEN f.MARGIN_PCT END), 1) as avg_margin_pct,
+        SUM(CASE WHEN f.IS_WON AND f.PROJECT_IS_OVER_BUDGET THEN 1 ELSE 0 END) as over_budget_projects
+      FROM ANALYTICS2.MART.FACT_OPPORTUNITY_DELIVERY f
+      WHERE f.OPPORTUNITY_TYPE IS NOT NULL
+      GROUP BY f.OPPORTUNITY_TYPE, f.FORECAST_CATEGORY
+      HAVING COUNT(*) >= 100
+      ORDER BY total_bookings DESC
+      LIMIT 15
+$$
+);
+
+-- Verify deployment
+SHOW SEMANTIC VIEWS IN ANALYTICS2.MART;
+DESC SEMANTIC VIEW ANALYTICS2.MART.OPPORTUNITY_DELIVERY_ANALYTICS;
+
+SELECT 'SUCCESS: Semantic view deployed' AS status;

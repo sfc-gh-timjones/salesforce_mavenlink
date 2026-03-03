@@ -8,6 +8,7 @@
 # But ignore these within Clean Star Schema
 Clean Star Schema/logs/
 Clean Star Schema/aggregation_reference.yaml
+Clean Star Schema/reference_guide.md
 Clean Star Schema/clean_star/logs/
 Clean Star Schema/clean_star/.user.yml
 
