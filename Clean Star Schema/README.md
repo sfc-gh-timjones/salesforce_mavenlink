@@ -100,12 +100,19 @@ Verify:
 DESCRIBE AGENT ANALYTICS2.AGENTS.OPPORTUNITY_DELIVERY_AGENT;
 ```
 
-To use the agent in Snowflake Intelligence:
+To use the agent in Snowflake Intelligence, there are two options. The SQL option is recommended as a newly created agent may have a slight delay before appearing in the UI.
+
+**Option 1: Via SQL (Recommended)**
+```sql
+ALTER SNOWFLAKE INTELLIGENCE SNOWFLAKE_INTELLIGENCE_OBJECT_DEFAULT
+  ADD AGENT ANALYTICS2.AGENTS.OPPORTUNITY_DELIVERY_AGENT;
+```
+
+**Option 2: Via UI**
 1. Navigate to **AI & ML » Agents**
 2. Click the **Snowflake Intelligence** tab at the top
 3. Click **Add existing agent** (top right)
 4. Select `OPPORTUNITY_DELIVERY_AGENT` and add it
-5. Start asking questions!
 
 ## Verification
 
@@ -136,7 +143,9 @@ LIMIT 10;
 
 > **Note**: This demo uses synthetic data. Logic and null rates may differ from real production data.
 
-Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGENT` is selected, then try these questions:
+Go to **AI & ML » Snowflake Intelligence**, make sure `OPPORTUNITY_DELIVERY_AGENT` is selected, and start asking questions!
+
+Try these:
 
 - Show me sales pipeline performance by rep including win rates, deal velocity, and pipeline health metrics.
 - Which products drive the most revenue and what are the typical deal structures, discounts, and line item patterns?
