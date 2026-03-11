@@ -60,6 +60,9 @@ select
     opp.currency_iso_code,
     opp.fiscal_quarter,
     opp.fiscal_year,
+    opp.record_type_name,
+    opp.record_type_object,
+    opp.linked_booking_opportunity_id,
     
     a.account_name,
     a.industry,

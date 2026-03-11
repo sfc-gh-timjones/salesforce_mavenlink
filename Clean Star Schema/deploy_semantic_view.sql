@@ -237,6 +237,33 @@ tables:
           - At Risk - Low Margin
           - completed
           - No Project
+      - name: RECORD_TYPE_NAME
+        synonyms:
+          - record type
+          - opportunity record type
+          - booking type
+        description: Record type classification (Booking, Billing, or Contract)
+        expr: RECORD_TYPE_NAME
+        data_type: VARCHAR
+        sample_values:
+          - Booking
+          - Billing
+          - Contract
+      - name: RECORD_TYPE_OBJECT
+        synonyms:
+          - salesforce object type
+          - sobject type
+        description: Salesforce object type this record type belongs to
+        expr: RECORD_TYPE_OBJECT
+        data_type: VARCHAR
+      - name: LINKED_BOOKING_OPPORTUNITY_ID
+        synonyms:
+          - parent booking
+          - linked booking
+          - booking opportunity link
+        description: ID of the parent Booking opportunity that a Billing opportunity belongs to
+        expr: LINKED_BOOKING_OPPORTUNITY_ID
+        data_type: VARCHAR
     time_dimensions:
       - name: DEAL_CLOSE_DATE
         description: Close date of the opportunity
