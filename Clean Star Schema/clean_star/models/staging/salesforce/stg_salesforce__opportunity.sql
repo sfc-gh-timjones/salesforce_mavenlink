@@ -23,7 +23,7 @@ select
     rt.sobject_type as record_type_object,
     o.linked_booking_opportunity_c as linked_booking_opportunity_id
 from {{ source('salesforce', 'opportunity') }} o
-left join {{ source('salesforce', 'record_type') }} rt
+inner join {{ source('salesforce', 'record_type') }} rt
     on o.record_type_id = rt.id
+    and rt.name = 'Booking'
 where not o.is_deleted
-  and rt.name = 'Booking'
